@@ -1,153 +1,208 @@
-import time
-import os, sys
-import warnings
-from src.i24_configparse.parse import parse_cfg
 
+from src.i24_database_api.db_reader import DBReader
+from src.i24_database_api.db_writer import DBWriter
+from src.i24_database_api import db_parameters, schema
+import queue
 
-
-
-
-
-# set os environment config path
-cwd = os.getcwd()
-cfg = "./config"
-config_path = os.path.join(cwd,cfg)
-os.environ["user_config_directory"] = config_path # note that this may not affect processes globally
-
-#%% Input Tests
-
-# TEST 1 - Exception thrown when no cfg_name or obj are passed
+# %% Test connection
 try:
-    parse_cfg("DEBUG")
-    print("TEST  1: FAIL- does not correctly handle case with no cfg_name or obj input")
+    dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+               password=db_parameters.DEFAULT_PASSWORD,
+               database_name=db_parameters.DB_NAME, collection_name=db_parameters.RAW_COLLECTION)
 except Exception as e:
-    print("TEST  1: PASS - (Correctly throws Exception: {})".format(e))
+    print(e)
+
+# %% Test read_query Done
+dbr.create_index(["last_timestamp", "first_timestamp", "starting_x", "ending_x"])
+res = dbr.read_query(query_filter = {"last_timestamp": {"$gt": 5, "$lt":330}}, query_sort = [("last_timestamp", "ASC"), ("starting_x", "ASC")],
+                   limit = 0)
+
+for doc in res:
+    print("last timestamp: {:.2f}, starting_x: {:.2f}, ID: {}".format(doc["last_timestamp"], doc["starting_x"], doc["ID"]))
+
+
+#%% Test read_query_range (no range_increment) Done
+print("Using while-loop to read range")
+rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None)
+while True:
+    try:
+        print(next(rri)["ID"]) # access documents in rri one by one
+    except StopIteration:
+        print("END OF ITERATION")
+        break
+
+print("Using for-loop to read range")
+for result in dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None):
+    print(result["ID"])
+print("END OF ITERATION")
+
+
+#%% Test read_query_range (with range_increment) Done
+print("Using while-loop to read range")
+rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=10,static_parameters = ["direction"], static_parameters_query = [("$eq", dir)])
+while True:
+    try:
+        print("Current range: {}-{}".format(rri._current_lower_value, rri._current_upper_value))
+        for doc in next(rri): # next(rri) is a cursor
+            print(doc["last_timestamp"])
+    except StopIteration:
+        print("END OF ITERATION")
+        break
+
+#%% Test read_query_range with no upper or lower bounds (with range_increment) Done
+print("Using while-loop to read range")
+rri = dbr.read_query_range(range_parameter='last_timestamp', range_less_equal = 320, range_increment=10,static_parameters = ["direction"], static_parameters_query = [("$eq", dir)])
+
+iteration = 0
+while iteration < 5:
+    try:
+        print("Current range: {}-{}".format(rri._current_lower_value, rri._current_upper_value))
+        for doc in next(rri): # next(rri) is a cursor
+            print(doc["last_timestamp"])
+    except StopIteration:
+        print("END OF ITERATION")
+        break
+    iteration += 1
     
     
-# TEST 2 - Exception when  cfg_path is specified incorrectly
-try:
-    parse_cfg("DEBUG",cfg_name = "test_badpath.config")
-    print("TEST  2: FAIL- does not raise error when invalid config name was specified")
-except Exception as e:
-    print("TEST  2: PASS - (Correctly throws Exception: {})".format(e))
+#%% Test DBWriter write_stitch Done
+# query some test data to write to a new collection
+print("Connect to DBReader")
+test_dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+               password=db_parameters.DEFAULT_PASSWORD,
+               database_name=db_parameters.DB_NAME, collection_name=db_parameters.GT_COLLECTION)
+print("Query...")
+test_res = test_dbr.read_query(query_filter = {"last_timestamp": {"$gt": 5, "$lt":600}}, query_sort = [("last_timestamp", "ASC"), ("starting_x", "ASC")],
+                   limit = 0)
+test_res = list(test_res)
+print("Connect to DBWriter")
+dbw = DBWriter(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+               password=db_parameters.DEFAULT_PASSWORD,
+               database_name=db_parameters.DB_NAME, server_id=1, process_name=1, process_id=1, session_config_id=1)
+print("Writing {} documents...".format(len(test_res)))
 
+col = dbw.db[db_parameters.STITCHED_COLLECTION]
+col.drop()
+for doc in test_res:
+    dbw.write_stitched_trajectory(doc, fragment_ids = [1,2,3])
 
-# TEST 3 - UserWarning when no DEFAULT env is specified in config
-with warnings.catch_warnings(record = True) as w:
-    cfg = parse_cfg("DEBUG",cfg_name = "test2.config")
-    if w[-1].category == UserWarning:
-        print("TEST  3: PASS - (Correctly throws UserWarning when no DEFAULT env is specified in config)")
-    else:
-        print("TEST  3: FAIL - does not raise UserWarning when no DEFAULT env is specified")   
- 
-# TEST 4 - UserWarning when invalid environment is specified
-with warnings.catch_warnings(record = True) as w:
-    cfg = parse_cfg("DEBUG_MISSPELL",cfg_name = "test1.config")
-    if w[-1].category == UserWarning:
-        print("TEST  4: PASS - (Correctly throws UserWarning and switched to DEFAULT when invalid env is specified)")
-    else:
-        print("TEST  4: FAIL - does not raise UserWarning when invalid env was specified")
+          
+      
+
+#%% Test queue refill on static database DONE
+
+# if queue is below a threshold, refill with the next range chunk
+
+q = queue.Queue()
+MIN_QUEUE_SIZE = 5
+RANGE_INCREMENT = 50 # IN SEC
+INSERT_NUM = 50
+GETQ_NUM = 50
+
+dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+               password=db_parameters.DEFAULT_PASSWORD,
+               database_name=db_parameters.DB_NAME, collection_name=db_parameters.RAW_COLLECTION)
+rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=0, range_less_than=400, range_increment=RANGE_INCREMENT)
+
+while True:
+    i = 0
+    while i < GETQ_NUM: # simulate processing queue
+        if not q.empty():
+            q.get() 
+        if q.qsize() <= MIN_QUEUE_SIZE: # only move to the next query range if queue is low in stock
+            next_batch = next(rri)
+            for doc in next_batch:
+                q.put(doc)
+        i += 1 
         
+        print("Current range: {}-{}".format(rri._current_lower_value, rri._current_upper_value))
+        print("q size: ", q.qsize())
+    break
+#    print("collection size", dbr.collection.count_documents({}))
     
-#%% Correct Behavior Tests
+#%% Test live queue refill with dummy database Done 
+
+def insert_many_with_count(collection, insert_num, start):
+    many_documents = ({"key": i+start} for i in range(insert_num))
+    collection.insert_many(many_documents)
+    return start + insert_num
+    
+q = queue.Queue()
+MIN_QUEUE_SIZE = 5
+RANGE_INCREMENT = 10 # IN SEC
+INSERT_NUM = 5
+T_BUFFER = 10
+
+pipeline = [{'$match': {'operationType': 'insert'}}] # watch for insertion only
+
+# initiate a mongodb replica set
+dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+                password=db_parameters.DEFAULT_PASSWORD,
+                database_name=db_parameters.DB_NAME, collection_name="test_cs_collection")
+
+rri = dbr.read_query_range(range_parameter='key', range_greater_equal=0, range_less_than=600, range_increment=RANGE_INCREMENT)
 
 
-# TEST 5 -  verify correct behavior with default paramas object
-start = time.time()
-cfg = parse_cfg("DEBUG",cfg_name = "test1.config")
-elapsed = time.time() - start
-try:
-    cfg.a,cfg.b,cfg.c,cfg.d,cfg.e
-    print("TEST  5: PASS - took {:.5f}s to check schema for 5 attributes".format(elapsed))
-except AttributeError:
-    print("TEST  5: FAIL- param object doesn't have all attributes specified in config")
+test_collection = dbr.db["test_cs_collection"]
+test_collection.drop()
+test_collection = dbr.db["test_cs_collection"]
+# test_collection_rs = dbr_rs.db["test_cs_collection"] 
+# dbr_rs.client.close()
+
+iteration = 0
+t_max = 0
+start = 0
+
+while iteration < 6:
+    count = 0
+    
+    while q.qsize() <= MIN_QUEUE_SIZE: # only move to the next query range if queue is low in stock
+        with test_collection.watch(pipeline) as stream:  
+#            test_collection.insert_many(({'key': INSERT_NUM * iteration + i} for i in range(INSERT_NUM)))
+            start = insert_many_with_count(test_collection, INSERT_NUM, start)
+            change = stream.try_next()
+            if change:
+                print("new change: ", change["fullDocument"]["key"])
+                t_max = max(change["fullDocument"]["key"], t_max) # reset the t_max cursor
+                if t_max > rri._current_upper_value + T_BUFFER:
+                    print("refilling queue...")
+                    for doc in next(rri):
+    #                        print(doc)
+                        q.put(doc)
+        count +=1 
+                        
+    if not q.empty():
+        doc = q.get()
+        print("** process", doc["key"])
+    
+    iteration += 1
+    print("q size after: ", q.qsize())
+#    print("collection size", test_collection.count_documents({}))
+    print("tmax", t_max)
+    print("current change", change["fullDocument"]["key"], "upper bound", rri._current_upper_value)
 
 
-# TEST 6 - verify correct behavior with input object
-class TestObj():
-    def __init__(self):
-        pass
 
-obj = parse_cfg("PROD",obj = TestObj())
-try:
-    obj.a,obj.b,obj.c,obj.d,obj.e
-    print("TEST  6: PASS")
-except AttributeError:
-    print("TEST  6: FAIL- param object doesn't have all attributes specified in config")
-    
-    
+#%% Test insert with schema checking (validation)
+dbw.db.command("collMod", "test_collection", validator=schema.RAW_SCHEMA)
 
-#%% Schema Tests
-
-# TEST 7 - Exception when invalid type is specified in schema
-try:
-    parse_cfg("DEBUG",cfg_name = "test3.config")
-    print("TEST  7: FAIL- does not raise error when invalid config name was specified")
-except ValueError as e:
-    print("TEST  7: PASS - (Correctly throws Exception: {})".format(e))   
-    
-    
-# TEST 8 - Exception when schema doesn't include a key included in params
-try:
-    parse_cfg("DEBUG",cfg_name = "test4.config")
-    print("TEST  8: FAIL- does not raise error when schema is missing parameter")
-except KeyError as e:
-    print("TEST  8: PASS - (Correctly throws Exception: {})".format(e))   
+col = dbw.db["test_collection"]
+doc1 = {
+        "timestamp": [1.1,2.0,3.0],
+        "first_timestamp": 1.0,
+        "last_timestamp": 3.0,
+        "configuration_id": 1,
+        "x_position": [1.2]} # this would work
+doc2 = {
+       "time": [1,2,3]
+       } # this won't insert successfully
+print(col.count_documents({}))
+col.insert_one(doc1, bypass_document_validation = False) 
+print(col.count_documents({}))
 
 
-# TEST 9 - UserWarning when no schema is given in config
-with warnings.catch_warnings(record = True) as w:
-    cfg = parse_cfg("DEBUG",cfg_name = "test5.config")
-    if w[-1].category == UserWarning:
-        print("TEST  9: PASS - (Correctly throws UserWarning when no schema is given in config)")
-    else:
-        print("TEST  9: FAIL - does not raise UserWarning when no schema is given in config")    
-    
-    
-# TEST 10 - Exception when item is not of schema-enforced type
-try:
-    parse_cfg("DEBUG",cfg_name = "test6.config")
-    print("TEST 10: FAIL- does not raise  Exception when item is not of schema-enforced type")
-except Exception as e:
-    print("TEST 10: PASS - (Correctly throws Exception: {})".format(e))
 
-# TEST 11 - No exception with schema-checking disabled
-try:
-    parse_cfg("DEBUG",cfg_name = "test6.config",SCHEMA = False)
-    parse_cfg("DEBUG",cfg_name = "test3.config",SCHEMA = False)
-    parse_cfg("DEBUG",cfg_name = "test4.config",SCHEMA = False)
-    print("TEST 11: PASS - Does not raise Exception when schema-checking is disabled")
-except Exception as e:
-    print("TEST 11: FAIL - (Incorrectly throws Exception: {})".format(e))   
-    
-    
-#%% Additional tests
-    
-# TEST 12 - Check that error is thrown when schema-specified params are not included
-try:
-    parse_cfg("DEBUG",cfg_name = "test7.config")
-    print("TEST 12: FAIL- does not raise error when parameters are missing from env")
-except Exception as e:
-    print("TEST 12: PASS - (Correctly throws Exception: {})".format(e))     
-    
-    
-# TEST 13 - Check that no error is thrown when schema-specified params with optional tag are not included
-try:
-    parse_cfg("DEBUG",cfg_name = "test8.config")
-    print("TEST 13: PASS - (No error thrown when optional schema parameters not specified in env)")   
-except Exception as e:
-    print("TEST 13: FAIL - Raises error when optional parameters are missing from env: {}".format(e))
-    
-    
-# TEST 14 - Check that types are correctly cast
-params = parse_cfg("DEFAULT",cfg_name = "test9.config")
-try:
-    assert type(params.a) == int and params.a == 1, "a"
-    assert type(params.b) == str and params.b == "Test String 1", "b"
-    assert type(params.c) == float and params.c == 1.0, "c"
-    assert type(params.d) == bool and params.d, "d"
-    assert type(params.e) == float and params.e == 1.405
-    print("TEST 14: PASS - types are correctly cast")
-except AssertionError as e:
-    print("TEST 14: FAIL - types are not correctly cast: {}".format(e))
+
+
+
 

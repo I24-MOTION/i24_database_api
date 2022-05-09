@@ -2,7 +2,7 @@
 # import urllib.parse
 import pymongo
 import pymongo.errors
-import db_parameters
+# import db_parameters
 
 # from collections.abc import Iterable
 from collections import defaultdict
@@ -44,48 +44,9 @@ def read_query_once(host, port, username, password, database_name, collection_na
     return result
 
 
-def read_data_into_csv(host, port, username, password, database_name, collection_name,
-                       csv_file_path, query_filter,
-                       query_sort = None, limit = 0):
-    """
-    Executes a single database read query and writes the results to a CSV file with pre-defined format.l
-    :param host: Database connection host name.
-    :param port: Database connection port number.
-    :param username: Database authentication username.
-    :param password: Database authentication password.
-    :param database_name: Name of database to connect to (do not confuse with collection name).
-    :param collection_name: Name of database collection from which to query.
-    :param csv_file_path: Absolute or relative file path at which to save CSV file; directories must exist already.
-    :param query_filter: Currently a dict following pymongo convention (need to abstract this).
-    :param query_sort: List of tuples: (field_to_sort, sort_direction); direction is ASC/ASCENDING or DSC/DESCENDING.
-    :param limit: Numerical limit for number of documents returned by query.
-    :return:
-    """
-    # TODO: fill these in; they should probably be stored elsewhere in some configuration file
-    if collection_name == db_parameters.RAW_COLLECTION:
-        csv_columns = []
-    elif collection_name == db_parameters.STITCHED_COLLECTION:
-        csv_columns = []
-    elif collection_name == db_parameters.RECONCILED_COLLECTION:
-        csv_columns = []
-    elif collection_name == 'metadata':
-        csv_columns = []
-    else:
-        raise ValueError("Invalid database collection name.")
-
-    dbr = DBReader(host=host, port=port, username=username, password=password,
-                   database_name=database_name, collection_name=collection_name)
-    result = dbr.read_query(query_filter=query_filter, query_sort=query_sort, limit=limit)
-    import csv
-    with open(csv_file_path, 'w') as wf:
-        writer = csv.writer(csvfile=wf, delimiter=';', quoting=csv.QUOTE_NONNUMERIC)
-        for document in result:
-            doc_fmt = format_flat(columns=csv_columns, document=document)
-            writer.writerow(doc_fmt)
-
 
 def live_data_reader(database_name, collection_name, range_increment,
-                     ready_queue):
+                     ready_queue, min_queue_size = 1000):
     """
     Runs a database stream update listener on top of a managed cache that buffers data for a safe amount of time so
         that it can be assured to be time-ordered. Refill data queue if the queue size is below a threshold AND the next query range is before change_stream t_max - t_buffer
@@ -113,7 +74,7 @@ def live_data_reader(database_name, collection_name, range_increment,
     
     while True:
         try:
-            if ready_queue.qsize() <= db_parameters.MIN_QUEUE_SIZE: # only move to the next query range if queue is low in stock
+            if ready_queue.qsize() <= min_queue_size: # only move to the next query range if queue is low in stock
                 stream = dbr.collection.watch(pipeline)
                 first_insert_change = next(stream)
                 t_max = max(first_insert_change["fullDocument"]["last_timestamp"], t_max)
@@ -129,7 +90,9 @@ def live_data_reader(database_name, collection_name, range_increment,
             pass
 
     
-def raw_data_feed(database_name, collection_name, range_increment, ready_queue, direction):
+def raw_data_feed(host, port, username, password, database_name, collection_name,
+                  range_increment, ready_queue, direction, 
+                  MIN_QUEUE_SIZE = 1000):
     """
     Feed raw data to a queue incrementally
     ** THIS PROCEDURE AND FUNCTION IS TO BE REPLACED BY live_data_reader **
@@ -143,14 +106,9 @@ def raw_data_feed(database_name, collection_name, range_increment, ready_queue, 
     :param direction: "east" or "west" for query
     :return:
     """
-    # Initiate logger
-    # data_feed_logger = I24Logger(owner_process_name = "raw_data_feed_"+direction, connect_file=True, file_log_level='DEBUG', 
-    #                    connect_console=True, console_log_level='INFO')
-    
     # Connect to a replica set (the replica set has to be started first)
-    dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
-                    password=db_parameters.DEFAULT_PASSWORD,
-                    database_name=database_name, collection_name=db_parameters.RAW_COLLECTION)
+    dbr = DBReader(host=host, port=port, username=username,password=password,
+                   database_name=database_name, collection_name=collection_name)
     
     # temporary: start from min and end at max
     dir = 1 if direction == "east" else -1
@@ -160,19 +118,20 @@ def raw_data_feed(database_name, collection_name, range_increment, ready_queue, 
     while True:
         try:
             # print("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
-            if ready_queue.qsize() <= db_parameters.MIN_QUEUE_SIZE: # only move to the next query range if queue is low in stock
+            if ready_queue.qsize() <= MIN_QUEUE_SIZE: # only move to the next query range if queue is low in stock
                 next_batch = next(rri)
     
                 for doc in next_batch:
                     ready_queue.put(doc)   
                 # data_feed_logger.info("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
-                print("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
+                # print("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
         except:
             # The ChangeStream encountered an unrecoverable error or the
             # resume attempt failed to recreate the cursor.
             # data_feed_logger.warning("Raw data feed reached the end of iteration. Stop raw_data_feed process.", extra={})
-            print("Raw data feed reached the end of iteration. Stop raw_data_feed process.")
+            # print("Raw data feed reached the end of iteration. Stop raw_data_feed process.")
             # break
+            pass
         
 class DBReader:
     """
@@ -208,7 +167,7 @@ class DBReader:
         self.collection = self.db[collection_name]
         
         # create indices
-        self.create_index(db_parameters.INDICES)
+        self.create_index(["first_timestamp", "last_timestamp", "starting_x", "ending_x", "configuration_id", "_id"])
 
         # Class variables that will be set and reset during iterative read across a range.
         self.range_iter_parameter = None
