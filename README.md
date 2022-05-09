@@ -1,4 +1,4 @@
-# i24_configparse
+# i24_database_api
 
 ### Installation
 
