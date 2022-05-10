@@ -1,137 +1,8 @@
-# import multiprocessing
-# import urllib.parse
+
 import pymongo
-import pymongo.errors
-# import db_parameters
-
-# from collections.abc import Iterable
 from collections import defaultdict
-# from typing import Union
-# Numeric = Union[int, float]
-
-
-def format_flat(columns, document, impute_none_for_missing=False):
-    """
-    Takes a `document` returned from MongoDB and organizes it into an ordered list of values specified by `columns`.
-    :param columns: List of column names corresponding to document fields.
-    :param document: Dictionary-like document from MongoDB with fields corresponding to column names.
-    :param impute_none_for_missing: If True, sets value to None for any missing columns in `document`.
-    :return: List of values corresponding to columns.
-    """
-    # TODO: fill this in
-    # TODO: type hints correct to the data type the document will come through as
-    return []
-
-
-def read_query_once(host, port, username, password, database_name, collection_name,
-                    query_filter, query_sort = None, limit = 0):
-    """
-    Executes a single database read query using the DBReader object, which is destroyed immediately upon completion.
-    :param host: Database connection host name.
-    :param port: Database connection port number.
-    :param username: Database authentication username.
-    :param password: Database authentication password.
-    :param database_name: Name of database to connect (do not confuse with collection name).
-    :param collection_name: Name of database collection from which to query.
-    :param query_filter: Currently a dict following pymongo convention (need to abstract this).
-    :param query_sort: List of tuples: (field_to_sort, sort_direction); direction is ASC/ASCENDING or DSC/DESCENDING.
-    :param limit: Numerical limit for number of documents returned by query.
-    :return:
-    """
-    dbr = DBReader(host=host, port=port, username=username, password=password,
-                   database_name=database_name, collection_name=collection_name)
-    result = dbr.read_query(query_filter=query_filter, query_sort=query_sort, limit=limit)
-    return result
-
-
-
-def live_data_reader(database_name, collection_name, range_increment,
-                     ready_queue, min_queue_size = 1000):
-    """
-    Runs a database stream update listener on top of a managed cache that buffers data for a safe amount of time so
-        that it can be assured to be time-ordered. Refill data queue if the queue size is below a threshold AND the next query range is before change_stream t_max - t_buffer
-    ** THIS PROCEDURE AND FUNCTION IS STILL UNDER DEVELOPMENT **
-    ** NEEDS TO DETERMINE **
-    t_buffer: buffer time (in sec) such that no new fragment will be inserted before t_max - t_buffer   
-    
-    :param host: Database connection host name.
-    :param port: Database connection port number.
-    :param username: Database authentication username.
-    :param password: Database authentication password.
-    :param database_name: Name of database to connect to (do not confuse with collection name).
-    :param collection_name: Name of database collection from which to query.
-    :param ready_queue: Process-safe queue to which records that are "ready" are written.  multiprocessing.Queue
-    :return:
-    """
-    
-    # Connect to a replica set (the replica set has to be started first)
-    dbr = DBReader(host=None, port=None, username=None, password=None,
-                   database_name=database_name, collection_name=collection_name)
-    # TODO: currently read_query_range doesn't support unbounded range
-    rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=None, range_less_than=None, range_increment=range_increment)
-    t_max = 0
-    pipeline = [{'$match': {'operationType': 'insert'}}] # watch for insertion only
-    
-    while True:
-        try:
-            if ready_queue.qsize() <= min_queue_size: # only move to the next query range if queue is low in stock
-                stream = dbr.collection.watch(pipeline)
-                first_insert_change = next(stream)
-                t_max = max(first_insert_change["fullDocument"]["last_timestamp"], t_max)
-                if t_max > rri._current_upper_value:
-                    next_batch = next(rri)
-                    for doc in next_batch:
-                        ready_queue.put(doc)
-                        
-        except pymongo.errors.PyMongoError:
-            # The ChangeStream encountered an unrecoverable error or the
-            # resume attempt failed to recreate the cursor.
-            # logger.warning("live_data_reader encounters an error")
-            pass
-
-    
-def raw_data_feed(host, port, username, password, database_name, collection_name,
-                  range_increment, ready_queue, direction, 
-                  MIN_QUEUE_SIZE = 1000):
-    """
-    Feed raw data to a queue incrementally
-    ** THIS PROCEDURE AND FUNCTION IS TO BE REPLACED BY live_data_reader **
-    :param host: Database connection host name.
-    :param port: Database connection port number.
-    :param username: Database authentication username.
-    :param password: Database authentication password.
-    :param database_name: Name of database to connect to (do not confuse with collection name).
-    :param collection_name: Name of database collection from which to query.
-    :param ready_queue: Process-safe queue to which records that are "ready" are written.  multiprocessing.Queue
-    :param direction: "east" or "west" for query
-    :return:
-    """
-    # Connect to a replica set (the replica set has to be started first)
-    dbr = DBReader(host=host, port=port, username=username,password=password,
-                   database_name=database_name, collection_name=collection_name)
-    
-    # temporary: start from min and end at max
-    dir = 1 if direction == "east" else -1
-    rri = dbr.read_query_range(range_parameter='last_timestamp', range_increment=range_increment,
-                               static_parameters = ["direction"], static_parameters_query = [("$eq", dir)])
-    
-    while True:
-        try:
-            # print("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
-            if ready_queue.qsize() <= MIN_QUEUE_SIZE: # only move to the next query range if queue is low in stock
-                next_batch = next(rri)
-    
-                for doc in next_batch:
-                    ready_queue.put(doc)   
-                # data_feed_logger.info("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
-                # print("current raw_trajectories_queue size: {}".format(ready_queue.qsize()))
-        except:
-            # The ChangeStream encountered an unrecoverable error or the
-            # resume attempt failed to recreate the cursor.
-            # data_feed_logger.warning("Raw data feed reached the end of iteration. Stop raw_data_feed process.", extra={})
-            # print("Raw data feed reached the end of iteration. Stop raw_data_feed process.")
-            # break
-            pass
+        
+        
         
 class DBReader:
     """
@@ -150,11 +21,6 @@ class DBReader:
         :param collection_name: Name of database collection from which to query.
         """
         # Connect immediately upon instantiation.
-#        
-
-        # username = urllib.parse.quote_plus(username)
-        # password = urllib.parse.quote_plus(password)
-        # self.client = pymongo.MongoClient('mongodb://%s:%s@%s' % (username, password, host))
         self.client = pymongo.MongoClient(host=host, port=port, username=username, password=password,
                                           connect=True, connectTimeoutMS=5000)
         try:
@@ -321,14 +187,7 @@ class DBReader:
                 self.range_iter_stop_closed_interval = True
                 
         return iter(self)
-
-    def read_stream(self, pipeline):
-        '''
-        TODO: may not need this function
-        '''
-        cursor = self.collection.watch(pipeline=pipeline)
-        self.change_stream_cursor = cursor
-        return 
+    
 
     def __iter__(self):
         if self.range_iter_parameter is None or self.range_iter_start is None or self.range_iter_increment is None \

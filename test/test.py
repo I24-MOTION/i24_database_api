@@ -184,25 +184,31 @@ while iteration < 6:
 
 
 #%% Test insert with schema checking (validation)
+dbw = DBWriter(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+               password=db_parameters.DEFAULT_PASSWORD,
+               database_name=db_parameters.DB_NAME, server_id=1, process_name=1, process_id=1, session_config_id=1)
 dbw.db.command("collMod", "test_collection", validator=schema.RAW_SCHEMA)
-
 col = dbw.db["test_collection"]
+
+#%%
 doc1 = {
         "timestamp": [1.1,2.0,3.0],
         "first_timestamp": 1.0,
         "last_timestamp": 3.0,
-        "configuration_id": 1,
         "x_position": [1.2]} # this would work
 doc2 = {
        "time": [1,2,3]
        } # this won't insert successfully
 print(col.count_documents({}))
-col.insert_one(doc1, bypass_document_validation = False) 
+dbw.write_fragment(doc1) 
 print(col.count_documents({}))
 
-
-
-
-
+#%%
+print(col.count_documents({}))
+dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
+                   first_timestamp = 1.0,
+                   last_timestamp = 3.0,
+                   x_position = [1.2])
+print(col.count_documents({}))
 
 
