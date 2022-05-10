@@ -1,7 +1,7 @@
 
 
 # Custom I-24 Database API package
-#### Version: 0.1
+#### Version: 0.1.1
 #### Date revised: 05/10/2022
 
 ### Installation
@@ -89,7 +89,7 @@ dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,
                            x_position = [1.2])
 print("# documents in collection after insert: ", col.count_documents({}))
 ```
-As of v0.1, if a document violates the schema, it bypasses the validation check and prints a message in the console. In future versions a schema rule will be strictly enforced.
+As of v0.1.1, if a document violates the schema, it bypasses the validation check and prints a message in the console. In future versions a schema rule will be strictly enforced.
 
 ### In future versions
 
