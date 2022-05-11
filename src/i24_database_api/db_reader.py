@@ -239,7 +239,6 @@ class DBReader:
         return self.collection.count_documents({})
     
     def get_min(self, index_name):
-        print(self.get_first(index_name))
         return self.get_first(index_name)[index_name]
     
     def get_max(self, index_name):

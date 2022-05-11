@@ -1,11 +1,11 @@
 from src.i24_database_api.db_reader import DBReader
 from src.i24_database_api.db_writer import DBWriter
 from src.i24_database_api import db_parameters, schema
-import queue
+
 
 # %% Test connection
 try:
-    dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
+    dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.READONLY_USER,   
                password=db_parameters.DEFAULT_PASSWORD,
                database_name=db_parameters.DB_NAME, collection_name=db_parameters.RAW_COLLECTION)
 except Exception as e:
@@ -65,7 +65,6 @@ while iteration < 5:
     
  
 
-
 #%% Test insert with schema checking (validation)
 dbw = DBWriter(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
                password=db_parameters.DEFAULT_PASSWORD,
@@ -73,9 +72,6 @@ dbw = DBWriter(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT,
 dbw.db.command("collMod", "test_collection", validator=schema.RAW_SCHEMA)
 col = dbw.db["test_collection"]
 
-
-
-#%%
 print(col.count_documents({}))
 dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
                    first_timestamp = 1.0,

@@ -1,8 +1,7 @@
 import pymongo
 from threading import Thread
-from src.i24_database_api import db_parameters, schema
-
-# from i24_logger.log_writer import logger 
+from ..i24_database_api import db_parameters, schema
+# from ...src.i24_database_api import db_parameters
      
 # TODO: replace print with log   
 class DBWriter:
