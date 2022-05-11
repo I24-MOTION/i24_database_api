@@ -105,21 +105,23 @@ test_schema = {
 dbw = DBWriter(host=test_parameters.DEFAULT_HOST, port=test_parameters.DEFAULT_PORT, username=test_parameters.DEFAULT_USERNAME,   
                password=test_parameters.DEFAULT_PASSWORD,
                database_name=test_parameters.DB_NAME, collection_name = "test_collection",
-               server_id=1, process_name=1, process_id=1, session_config_id=1, collection_schema=None)
+               server_id=1, process_name=1, process_id=1, session_config_id=1, collection_schema=test_schema)
 
 
 col = dbw.collection
 
 print(col.count_documents({}))
-dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
-                    first_timestamp = 1,
+dbw.write_one_trajectory(timestamp = [1.1,2.0,3.0],
+                    first_timestamp = 1.0,
                     last_timestamp = 3.0,
                     x_position = [1.2])
 print(col.count_documents({}))
 
 doc = {"timestamp": [1.1,2.0,4.0],
-                   "first_timestamp": 1,
+                   "first_timestamp": 1.0,
                    "last_timestamp": 3.0,
                    "x_position": [1.2]}
 dbw.write_one_trajectory(collection_name = "test_collection", **doc)
 print(col.count_documents({}))
+
+
