@@ -200,12 +200,14 @@ class DBReader:
     def get_first(self, index_name):
         '''
         get the first document from MongoDB by index_name
+        TODO: should match index_name
         '''
         return self.collection.find_one(sort=[(index_name, pymongo.ASCENDING)])
         
     def get_last(self, index_name):
         '''
-        get the last document from MongoDB by index_name        
+        get the last document from MongoDB by index_name 
+        TODO: should match index_name
         '''
         return self.collection.find_one(sort=[(index_name, pymongo.DESCENDING)])
     
@@ -237,6 +239,7 @@ class DBReader:
         return self.collection.count_documents({})
     
     def get_min(self, index_name):
+        print(self.get_first(index_name))
         return self.get_first(index_name)[index_name]
     
     def get_max(self, index_name):
