@@ -1,6 +1,6 @@
 from src.i24_database_api.db_reader import DBReader
 from src.i24_database_api.db_writer import DBWriter
-from config import test_parameters, test_schema
+from config import test_parameters
 
 
 # %% Test connection
@@ -66,11 +66,6 @@ while iteration < 5:
  
 
 #%% Test insert with schema checking (validation)
-
-dbw = DBWriter(host=test_parameters.DEFAULT_HOST, port=test_parameters.DEFAULT_PORT, username=test_parameters.DEFAULT_USERNAME,   
-               password=test_parameters.DEFAULT_PASSWORD,
-               database_name=test_parameters.DB_NAME, server_id=1, process_name=1, process_id=1, session_config_id=1)
-
 test_schema = {
     "$jsonSchema": {
         "bsonType": "object",
@@ -107,15 +102,24 @@ test_schema = {
         }
     }
 
-dbw.create_collection(collection_name = "test_collection", schema = test_schema)
+dbw = DBWriter(host=test_parameters.DEFAULT_HOST, port=test_parameters.DEFAULT_PORT, username=test_parameters.DEFAULT_USERNAME,   
+               password=test_parameters.DEFAULT_PASSWORD,
+               database_name=test_parameters.DB_NAME, collection_name = "test_collection",
+               server_id=1, process_name=1, process_id=1, session_config_id=1, collection_schema=None)
 
-col = dbw.db["test_collection"]
+
+col = dbw.collection
 
 print(col.count_documents({}))
 dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
-                   first_timestamp = 1.0,
-                   last_timestamp = 3.0,
-                   x_position = [1.2])
+                    first_timestamp = 1,
+                    last_timestamp = 3.0,
+                    x_position = [1.2])
 print(col.count_documents({}))
 
-
+doc = {"timestamp": [1.1,2.0,4.0],
+                   "first_timestamp": 1,
+                   "last_timestamp": 3.0,
+                   "x_position": [1.2]}
+dbw.write_one_trajectory(collection_name = "test_collection", **doc)
+print(col.count_documents({}))
