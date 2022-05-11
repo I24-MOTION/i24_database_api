@@ -1,13 +1,13 @@
 from src.i24_database_api.db_reader import DBReader
 from src.i24_database_api.db_writer import DBWriter
-from src.i24_database_api import db_parameters, schema
+from config import test_parameters, test_schema
 
 
 # %% Test connection
 try:
-    dbr = DBReader(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.READONLY_USER,   
-               password=db_parameters.DEFAULT_PASSWORD,
-               database_name=db_parameters.DB_NAME, collection_name=db_parameters.RAW_COLLECTION)
+    dbr = DBReader(host=test_parameters.DEFAULT_HOST, port=test_parameters.DEFAULT_PORT, username=test_parameters.READONLY_USER,   
+               password=test_parameters.DEFAULT_PASSWORD,
+               database_name=test_parameters.DB_NAME, collection_name=test_parameters.RAW_COLLECTION)
 except Exception as e:
     print(e)
 
@@ -66,10 +66,49 @@ while iteration < 5:
  
 
 #%% Test insert with schema checking (validation)
-dbw = DBWriter(host=db_parameters.DEFAULT_HOST, port=db_parameters.DEFAULT_PORT, username=db_parameters.DEFAULT_USERNAME,   
-               password=db_parameters.DEFAULT_PASSWORD,
-               database_name=db_parameters.DB_NAME, server_id=1, process_name=1, process_id=1, session_config_id=1)
-dbw.db.command("collMod", "test_collection", validator=schema.RAW_SCHEMA)
+
+dbw = DBWriter(host=test_parameters.DEFAULT_HOST, port=test_parameters.DEFAULT_PORT, username=test_parameters.DEFAULT_USERNAME,   
+               password=test_parameters.DEFAULT_PASSWORD,
+               database_name=test_parameters.DB_NAME, server_id=1, process_name=1, process_id=1, session_config_id=1)
+
+test_schema = {
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["timestamp", "first_timestamp"],
+        "properties": {
+            "configuration_id": {
+                "bsonType": "int",
+                "description": "A unique ID that identifies what configuration was run. It links to a metadata document that defines all the settings that were used system-wide to generate this trajectory fragment"
+                },
+            "timestamp": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": ""
+                },
+            "first_timestamp": {
+                "bsonType": "double",
+                "description": ""
+                },
+            "last_timestamp": {
+                "bsonType": "double",
+                "description": ""
+                },
+            "x_position": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": "Array of back-center x position along the road segment in feet. The  position x=0 occurs at the start of the road segment."
+                },
+            
+            }
+        }
+    }
+
+dbw.create_collection(collection_name = "test_collection", schema = test_schema)
+
 col = dbw.db["test_collection"]
 
 print(col.count_documents({}))

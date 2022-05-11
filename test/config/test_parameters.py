@@ -1,3 +1,11 @@
+# -----------------------------
+# database login credentials
+DEFAULT_HOST = '10.2.218.56'
+DEFAULT_PORT = 27017
+DEFAULT_USERNAME = 'i24-data'
+READONLY_USER =  "readonly"
+DEFAULT_PASSWORD = 'mongodb@i24'
+
 
 GT_COLLECTION = "ground_truth_one"
 RAW_COLLECTION = "raw_trajectories_one" # specify raw trajectories collection name that is used for reading

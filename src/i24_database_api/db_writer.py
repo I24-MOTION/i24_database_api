@@ -1,6 +1,6 @@
 import pymongo
 from threading import Thread
-from ..i24_database_api import db_parameters, schema
+# from ..i24_database_api import db_parameters, schema
 # from ...src.i24_database_api import db_parameters
      
 # TODO: replace print with log   
@@ -45,23 +45,13 @@ class DBWriter:
             
         self.db = self.client[database_name]
         
-        # create three critical collections
-        try: self.db.create_collection(db_parameters.RAW_COLLECTION)
-        except: pass   
-        try: self.db.create_collection(db_parameters.STITCHED_COLLECTION)
-        except: pass
-        try: self.db.create_collection(db_parameters.RECONCILED_COLLECTION)
-        except: pass
-    
-        # set rules for schema. enable schema checking when insert using
-        # col.insert_one(doc)
-        # disable schema checking: col.insert_one(doc, bypass_document_validation=False)
-        # TODO: make a function to add customized schema to a specific collection, ground_truth, for example
-        self.db.command("collMod", db_parameters.RAW_COLLECTION, validator=schema.RAW_SCHEMA)
-        self.db.command("collMod", db_parameters.STITCHED_COLLECTION, validator=schema.STITCHED_SCHEMA)
-        self.db.command("collMod", db_parameters.RECONCILED_COLLECTION, validator=schema.RECONCILED_SCHEMA)
-        
 
+    def create_collection(self, collection_name, schema = None):
+        try: self.db.create_collection(collection_name)
+        except: pass
+        if schema:
+            self.db.command("collMod", collection_name, validator=schema)
+        
     def insert_one_schema_validation(self, collection, document):
         '''
         A wrapper around pymongo insert_one, which is a thread-safe operation
