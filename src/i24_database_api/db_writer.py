@@ -1,8 +1,8 @@
 import pymongo
 from threading import Thread
-# from ..i24_database_api import db_parameters, schema
-# from ...src.i24_database_api import db_parameters
-     
+import json
+import warnings
+
 # TODO: replace print with log   
 class DBWriter:
     """
@@ -10,7 +10,7 @@ class DBWriter:
     """
 
     def __init__(self, host, port, username, password, database_name, collection_name,
-                 server_id, process_name, process_id, session_config_id, num_workers = 200, collection_schema = None):
+                 server_id, process_name, process_id, session_config_id, num_workers = 200, schema_file = None):
         """
         :param host: Database connection host name.
         :param port: Database connection port number.
@@ -21,6 +21,7 @@ class DBWriter:
         :param process_name: Name of the process this writer is attached to (writing from).
         :param process_id: ID value for the process this writer is attached to (writing from).
         :param session_config_id: Configuration ID value that was assigned to this run/session of data processing.
+        :param schema_file: json file path
         """
         
         self.server_id = server_id
@@ -42,9 +43,14 @@ class DBWriter:
             
         self.db = self.client[database_name]
         
-        if collection_schema: # add validator
+        if schema_file: # add validator
+            f = open(schema_file)
+            collection_schema = json.load(f)
+            f.close()
             self.create_collection(collection_name, collection_schema)
         else: # remove validator
+            warnings.warn("No schema rule is specified, remove the validator in collection {}".format(collection_name), UserWarning)
+            self.create_collection(collection_name, None)
             self.db.command("collMod", collection_name, validator={})
         self.collection = self.db[collection_name]
         
@@ -53,6 +59,7 @@ class DBWriter:
         try: 
             self.db.create_collection(collection_name)
         except: 
+            warnings.warn("Collection {} already exists".format(collection_name), UserWarning)
             pass
         if schema:
             self.db.command("collMod", collection_name, validator=schema)
@@ -62,14 +69,11 @@ class DBWriter:
         A wrapper around pymongo insert_one, which is a thread-safe operation
         bypass_document_validation = True: enforce schema
         '''
-        # try:
-        collection.insert_one(document, bypass_document_validation = False)
-        # except Exception as e: # schema violated
-            # TODO: log this error
-            # logger.warning("Schema violated during insertion. Insert with validation bypassed.")
-            # print("Schema violated during insertion. Insert with validation bypassed.")
-            # print(e)
-            # collection.insert_one(document, bypass_document_validation = True)
+        try:
+            collection.insert_one(document, bypass_document_validation = False)
+        except Exception as e: # schema violated
+            warnings.warn("Schema violated. Insert anyways. Full error: {}".format(e), UserWarning)
+            collection.insert_one(document, bypass_document_validation = True)
             
         
     def write_one_trajectory(self, thread = True, collection_name = None, **kwargs):

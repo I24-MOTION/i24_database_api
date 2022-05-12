@@ -1,7 +1,7 @@
 
 import pymongo
 from collections import defaultdict
-        
+import warnings  
         
         
 class DBReader:
@@ -26,7 +26,7 @@ class DBReader:
         try:
             self.client.admin.command('ping')
         except pymongo.errors.ConnectionFailure:
-            print("Server not available")
+            warnings.warn("Server not available")
             raise ConnectionError("Could not connect to MongoDB.")
 
         self.db = self.client[database_name]
