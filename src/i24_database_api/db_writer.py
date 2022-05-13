@@ -10,7 +10,7 @@ class DBWriter:
     """
 
     def __init__(self, host, port, username, password, database_name, collection_name,
-                 server_id, process_name, process_id, session_config_id, num_workers = 200, schema_file = None):
+                 server_id, process_name, process_id, session_config_id, num_workers = 200, max_idle_time_ms = None, schema_file = None):
         """
         :param host: Database connection host name.
         :param port: Database connection port number.
@@ -33,12 +33,12 @@ class DBWriter:
         self.client = pymongo.MongoClient(host=host, port=port, username=username, 
                                           password=password,
                                           connect=True, 
-                                          connectTimeoutMS=5000,
+                                          maxIdleTimeMS = max_idle_time_ms,
+                                          connectTimeoutMS = 5000,
                                           )
         try:
             self.client.admin.command('ping')
         except pymongo.errors.ConnectionFailure:
-            # print("Server not available")
             raise ConnectionError("Could not connect to MongoDB using pymongo.")
             
         self.db = self.client[database_name]
