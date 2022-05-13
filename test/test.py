@@ -77,7 +77,7 @@ class DBTest(unittest.TestCase):
 
         return
     
-    def read_query_with_range_increment(self):
+    def test_read_query_with_range_increment(self):
         '''
         with range increment, should return chunks of queried items
         '''
@@ -92,13 +92,10 @@ class DBTest(unittest.TestCase):
         rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=10,
                                    static_parameters = ["direction"], static_parameters_query = [("$eq", dir)])
         count = 0
-        while True:
-            try:
+        with self.assertRaises(StopIteration):
+            while True:            
                 next(rri)
                 count += 1
-            except StopIteration:
-                print("properly ends iteration")
-                break
     
         self.assertEqual(count, 3, "Number of iterations incorrect")
         return
@@ -248,7 +245,7 @@ class DBTest(unittest.TestCase):
             return  
         
     
-    def write_with_dictionary(self):
+    def test_write_with_dictionary(self):
         '''
         write to db by wrapping all fields into a dictionary
         '''
@@ -260,24 +257,32 @@ class DBTest(unittest.TestCase):
         
             # write with schema rule
             c1 = dbw.collection.count_documents({})
-            dbw.write_one_trajectory(timestamp = [1.1,2.0,3.0],
-                                first_timestamp = 1,
-                                last_timestamp = 3.0,
-                                x_position = [1.2])
+            doc = {"timestamp": [1.1,2.0,3.0],
+                                "first_timestamp": 1,
+                                "last_timestamp": 3.0,
+                                "x_position": [1.2]}
+            dbw.write_one_trajectory(**doc)
             c2 = dbw.collection.count_documents({})
             dbw.collection.drop()
-            self.assertEqual(c2-c1, 1, "Message not successfully inserted with correct schema rule")
+            self.assertEqual(c2-c1, 1, "Message (dict) not successfully inserted with correct schema rule")
             
             # not according to schema rule
+            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
+                    username=self.db_param.default_username, password=self.db_param.default_password,
+                    database_name=self.db_param.db_name, collection_name="test_collection",
+                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file1)
+        
             with self.assertWarns(Warning):
                 c1 = dbw.collection.count_documents({})
-                dbw.write_one_trajectory(timestamp = [1.1,2.0,3],
-                                    first_timestamp = 1,
-                                    last_timestamp = 3.0,
-                                    x_position = [1.2])
+                doc = {"timestamp": [1.1,2.0,3],
+                                    "first_timestamp": 1,
+                                    "last_timestamp": 3.0,
+                                    "x_position": [1.2]}
+                
+                dbw.write_one_trajectory(**doc)
                 c2 = dbw.collection.count_documents({})
                 dbw.collection.drop()
-                self.assertEqual(c2-c1, 1, "Message not successfully inserted with incorrect schema rule")
+                self.assertEqual(c2-c1, 1, "Message (dict) not successfully inserted with incorrect schema rule")
             
         except Exception as e:
             self.fail(e)

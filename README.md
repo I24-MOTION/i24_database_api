@@ -24,6 +24,10 @@ dbr = DBReader(host=host, port=port, username=username, password=password,
 ### Requirements
 - pymongo
 
+### Latest version supports
+- continuous range query
+- concurrent insert
+- schema enforcement (pass schema rule as .json file)
 
 ## Usage examples
 
@@ -60,17 +64,17 @@ last timestamp: 328.93, starting_x: 30132.66, ID: 3600090.0
 ```
 
 
-### Use case 2: Concurrent writing with multithreading
+### Use case 2: Concurrent insert with multithreading
 When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
 
 ```python
 dbw = DBWriter(host=host, port=port, username=username, password=password,
                 database_name=database_name, server_id=server_id, process_name=process_name, 
-                process_id=process_id, session_config_id=session_config_id)
-dbw.db.command("collMod", "test_collection", validator=schema.RAW_SCHEMA)
+                process_id=process_id, session_config_id=session_config_id,schema_file=schema_file)
+
 col = dbw.db["test_collection"]
 
-# insert a document of python dictionary format
+# insert a document of python dictionary format -> pass it as kwargs
 doc1 = {
         "timestamp": [1.1,2.0,3.0],
         "first_timestamp": 1.0,
@@ -78,10 +82,10 @@ doc1 = {
         "x_position": [1.2]} 
 
 print("# documents in collection before insert: ", col.count_documents({}))
-dbw.write_fragment(doc1) 
+dbw.write_one_trajectory(**doc1) 
 print("# documents in collection after insert: ", col.count_documents({}))
 
-# insert a document using keyword args
+# insert a document using keyword args directly
 print("# documents in collection before insert: ", col.count_documents({}))
 dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
                            first_timestamp = 1.0,
@@ -89,9 +93,12 @@ dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,
                            x_position = [1.2])
 print("# documents in collection after insert: ", col.count_documents({}))
 ```
-As of v0.1.1, if a document violates the schema, it bypasses the validation check and prints a message in the console. In future versions a schema rule will be strictly enforced.
+As of v0.1.1, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
 
 ### In future versions
 
 Additional future enhancements include: 
 - use logger in db_writer
+- simply object initiation with less arguments
+
+
