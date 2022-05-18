@@ -99,6 +99,6 @@ As of v0.1.1, if a document violates the schema, it bypasses the validation chec
 
 Additional future enhancements include: 
 - use logger in db_writer
-- simply object initiation with less arguments
+- simplify object initiation with less arguments
 
 
