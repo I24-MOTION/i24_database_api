@@ -10,7 +10,7 @@ class DBTest(unittest.TestCase):
     cfg = "./config"
     config_path = os.path.join(cwd,cfg)
     os.environ["user_config_directory"] = config_path
-    db_param = parse_cfg("DEFAULT", cfg_name = "test_param.config")
+    db_param = parse_cfg("TEST", cfg_name = "test_param.config")
 
     schema_file1 = 'config/raw_schema.json'
     schema_file2 = 'config/stitched_schema.json'

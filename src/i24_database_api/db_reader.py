@@ -223,12 +223,16 @@ class DBReader:
             return key.keys()
         
     def create_index(self, indices):
-        all_field_names = self.collection.find_one({}).keys()
-        existing_indices = self.collection.index_information().keys()
-        for index in indices:
-            if index in all_field_names:
-                if index+"_1" not in existing_indices and index+"_-1" not in existing_indices:
-                    self.collection.create_index(index)     
+        try:
+            all_field_names = self.collection.find_one({}).keys()
+            existing_indices = self.collection.index_information().keys()
+            for index in indices:
+                if index in all_field_names:
+                    if index+"_1" not in existing_indices and index+"_-1" not in existing_indices:
+                        self.collection.create_index(index)     
+        except Exception as e:
+            warnings.warn("Index not created. Full error: {}".format(e))
+            pass
         return
     
     def get_range(self, index_name, start, end): 
