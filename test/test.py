@@ -33,7 +33,7 @@ class DBTest(unittest.TestCase):
             dbr.collection.insert_one({"key": "value"})
             
         
-    
+    # @unittest.skip("")
     def test_collection_indices_setup(self):
         '''
         test if DBReader properly sets up the indices for the collection
@@ -52,7 +52,8 @@ class DBTest(unittest.TestCase):
             self.assertTrue(index+"_1" in existing_indices or index+"_-1" in existing_indices, "{} is not in existing indices".format(index))
 
     
-    
+
+    # @unittest.skip("")
     def test_read_query_without_range_increment(self):
         '''
         no range increment, should return all within lower and upper bound
@@ -77,6 +78,7 @@ class DBTest(unittest.TestCase):
 
         return
     
+    # @unittest.skip("")
     def test_read_query_with_range_increment(self):
         '''
         with range increment, should return chunks of queried items
@@ -106,6 +108,7 @@ class DBTest(unittest.TestCase):
         '''
         return
     
+    # @unittest.skip("")
     def test_writer_connection_write_privilege(self):
         '''
         test connection to DBWriter, and user insert privilege should be enabled
@@ -129,6 +132,7 @@ class DBTest(unittest.TestCase):
             return  
         
        
+    # @unittest.skip("")
     def test_write_with_kwargs_schema1(self):
         '''
         write to db by specifying keywords arguments
@@ -203,7 +207,8 @@ class DBTest(unittest.TestCase):
         except Exception as e:
             self.fail(e)
             return  
-        
+       
+    # @unittest.skip("")
     def test_write_with_kwargs_schema3(self):
         '''
         write to db by specifying keywords arguments
@@ -245,6 +250,7 @@ class DBTest(unittest.TestCase):
             return  
         
     
+    # @unittest.skip("")
     def test_write_with_dictionary(self):
         '''
         write to db by wrapping all fields into a dictionary

@@ -19,7 +19,32 @@ from i24_database_api.db_writer import DBWriter
 dbr = DBReader(host=host, port=port, username=username, password=password,
                 database_name=database_name, collection_name=collection_name)
 ```
+Access the corresponding client connection by
+```
+dbr.client
+dbw.client
+```
 
+Access the corresponding client connection by
+```
+dbr.db
+dbw.db
+```
+
+Note that only one collection is assigned to each reader or writer object for the convenience of read and write. For example:
+```
+dbr.collection
+```
+gives you the same access as the following command
+```
+dbr.client.db.collection
+```
+
+DBReader's user role should be read-only, and DBWriter's user role should be write-only. To access or change user privileges, specify usernames and privileges in mongod shell.
+More details: 
+https://stackoverflow.com/questions/23943651/mongodb-admin-user-not-authorized
+https://www.codexpedia.com/devops/mongodb-authentication-setting/
+https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 
 ### Requirements
 - pymongo
@@ -29,9 +54,22 @@ dbr = DBReader(host=host, port=port, username=username, password=password,
 - concurrent insert
 - schema enforcement (pass schema rule as .json file)
 
-## Usage examples
+## Usage examples for DBReader
 
-### Use case 1: Range query
+#### Query a single document
+```python
+dbr.find_one(index_name, value)
+```
+#### Query based on filter
+This API follows pymongo implementation, a more abstracted version of pymongo's collection.find()
+```python
+query_filter = {"_id": {"$in": fragment_ids}}
+query_sort = [("last_timestamp", "ASC")])
+dbr.read_query(query_filter, query_sort)
+```
+
+
+#### Iterative range query
 
 The following code demonstrates the use of the iterative query based on a query parameter. 
 
@@ -63,16 +101,29 @@ last timestamp: 325.07, starting_x: 32076.31, ID: 400089.0
 last timestamp: 328.93, starting_x: 30132.66, ID: 3600090.0
 ```
 
+## Usage examples for DBWriter
 
-### Use case 2: Concurrent insert with multithreading
-When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
-
+Instantiate a DBWriter object
 ```python
 dbw = DBWriter(host=host, port=port, username=username, password=password,
                 database_name=database_name, server_id=server_id, process_name=process_name, 
                 process_id=process_id, session_config_id=session_config_id,schema_file=schema_file)
+```
 
-col = dbw.db["test_collection"]
+#### Create a collection
+A collection with specified ```collection_name``` is automatically created upon instantiating the DBWriter object. If a schema file (in json) is given, the writer object adds validation rule to the collection based on the json file. 
+Otherwise, it gives a warning "no schema provided", and proceeds without validation rule.
+
+A collection can also be created after the DBWriter object is instantiated, simply call
+```python
+dbw.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
+```
+
+#### Concurrent insert with multithreading
+When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
+
+```
+col = dbw.collection
 
 # insert a document of python dictionary format -> pass it as kwargs
 doc1 = {
@@ -100,5 +151,8 @@ As of v0.1.1, if a document violates the schema, it bypasses the validation chec
 Additional future enhancements include: 
 - use logger in db_writer
 - simplify object initiation with less arguments
-
-
+- add built-in user privilege checking (but this step requires authentication). After temporary disable authentication in mongod.conf, one can do
+```python
+dbr.client.admin.command({"usersInfo": "readonly" })['users'][0]['roles']
+```
+to get all the user info. Check the specified user has only "read only" privilege or not. Similar for DBWriter.
