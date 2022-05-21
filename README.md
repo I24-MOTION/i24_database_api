@@ -1,15 +1,15 @@
 
 
 # Custom I-24 Database API package
-#### Version: 0.1.1
-#### Date revised: 05/10/2022
+#### Version: 0.2
+#### Date revised: 05/20/2022
 
 ### Installation
 With the desired python venv / conda env activated, use the following command in shell:
 
 `pip install git+https://github.com/yanb514/i24_database_api@<tag>`
 
-where `<tag>` is either a branch name (e.g. `main`) or a tag name (e.g. `v0.1`)
+where `<tag>` is either a branch name (e.g. `main`) or a tag name (e.g. `v0.2`)
     
 Then, to import the data reader or writer object and establish a connection:
 
@@ -25,7 +25,7 @@ dbr.client
 dbw.client
 ```
 
-Access the corresponding client connection by
+Access the corresponding database connection by
 ```
 dbr.db
 dbw.db
@@ -88,7 +88,7 @@ for result in dbr.read_query_range(range_parameter='last_timestamp', range_great
 print("END OF ITERATION")
 ```
 
-The console log output of the code is the following. Notice the PID in the `extra` field of each message remains the same, even for the imported function.
+produces
 ```
 last timestamp: 304.17, starting_x: 32806.20, ID: 3600083.0
 last timestamp: 306.00, starting_x: 32771.59, ID: 3600084.0
