@@ -150,6 +150,79 @@ As of v0.1.1, if a document violates the schema, it bypasses the validation chec
 
 #### Schema examples
 "Reconciled trajectories" collection
+```
+{
+    "$jsonSchema": {
+        "bsonType": "object",
+        "required": ["timestamp", "last_timestamp", "x_position"],
+        "properties": {
+            "configuration_id": {
+                "bsonType": "int",
+                "description": "A unique ID that identifies what configuration was run. It links to a metadata document that defines all the settings that were used system-wide to generate this trajectory fragment"
+                },
+            "coarse_vehicle_class": {
+                "bsonType": "int",
+                "description": "Vehicle class number"
+                },
+            
+            "timestamp": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": "Corrected timestamp. This timestamp may be corrected to reduce timestamp errors."
+                },
+            
+ 
+            "road_segment_ids": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "int"
+                    },
+                "description": "Unique road segment ID. This differentiates the mainline from entrance ramps and exit ramps, which get distinct road segment IDs."
+                },
+            "x_position": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": "Array of back-center x position along the road segment in feet. The  position x=0 occurs at the start of the road segment."
+                },
+            "y_position": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": "array of back-center y position across the road segment in feet. y=0 is located at the left yellow line, i.e., the left-most edge of the left-most lane of travel in each direction."
+                },
+            
+            "length": {
+                "bsonType": "double",
+                "description": "vehicle length in feet."
+                },
+            "width": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": "vehicle width in feet"
+                },
+            "height": {
+                "bsonType": "array",
+                "items": {
+                    "bsonType": "double"
+                    },
+                "description": "vehicle height in feet"
+                },
+            "direction": {
+                "bsonType": "int",
+                "description": "-1 if westbound, 1 if eastbound"
+                }
+
+            }
+        }
+    }
+```
 https://github.com/yanb514/i24_database_api/blob/main/test/config/reconciled_schema.json
 
 
