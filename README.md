@@ -119,6 +119,7 @@ A collection can also be created after the DBWriter object is instantiated, simp
 dbw.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
 ```
 
+
 #### Concurrent insert with multithreading
 When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
 
@@ -145,6 +146,14 @@ dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,
 print("# documents in collection after insert: ", col.count_documents({}))
 ```
 As of v0.1.1, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
+
+
+#### Schema examples
+"Reconciled trajectories" collection
+https://github.com/yanb514/i24_database_api/blob/main/test/config/reconciled_schema.json
+
+
+
 
 ### In future versions
 
