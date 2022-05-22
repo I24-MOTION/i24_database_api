@@ -123,7 +123,7 @@ dbw.create_collection(collection_name = collection_name, schema = schema_file) #
 #### Concurrent insert with multithreading
 When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
 
-```
+```python
 col = dbw.collection
 
 # insert a document of python dictionary format -> pass it as kwargs
