@@ -145,7 +145,7 @@ dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,
                            x_position = [1.2])
 print("# documents in collection after insert: ", col.count_documents({}))
 ```
-As of v0.1.1, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
+As of v0.2, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
 
 
 #### Schema examples
