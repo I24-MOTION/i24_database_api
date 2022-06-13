@@ -9,7 +9,7 @@ With the desired python venv / conda env activated, use the following command in
 
 `pip install git+https://github.com/yanb514/i24_database_api@<tag>`
 
-where `<tag>` is either a branch name (e.g. `main`) or a tag name (e.g. `v0.2`)
+where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.2`), or the latest version (`latest`)
     
 Then, to import the data reader or writer object and establish a connection:
 
@@ -145,7 +145,7 @@ dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,
                            x_position = [1.2])
 print("# documents in collection after insert: ", col.count_documents({}))
 ```
-As of v0.1.1, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
+As of v0.2, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
 
 
 #### Schema examples
