@@ -1,6 +1,6 @@
 from src.i24_database_api.db_reader import DBReader
 from src.i24_database_api.db_writer import DBWriter
-from i24_configparse.parse import parse_cfg
+from i24_configparse import parse_cfg
 import os
 import unittest
 
@@ -91,12 +91,19 @@ class DBTest(unittest.TestCase):
             self.fail(e)
             return
         
+        dir = -1
         rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=10,
                                    static_parameters = ["direction"], static_parameters_query = [("$eq", dir)])
         count = 0
         with self.assertRaises(StopIteration):
             while True:            
-                next(rri)
+                batch = list(next(rri))
+                # print("length of batch: ", len(batch))
+                try:
+                    doc = batch[0]
+                    self.assertEqual(doc["direction"], dir, "static query item is incorrect")
+                except IndexError:
+                    pass
                 count += 1
     
         self.assertEqual(count, 3, "Number of iterations incorrect")
@@ -173,7 +180,7 @@ class DBTest(unittest.TestCase):
             self.fail(e)
             return  
         
-        
+    # @unittest.skip("")  
     def test_write_with_kwargs_schema2(self):
         '''
         write to db by specifying keywords arguments
@@ -278,7 +285,7 @@ class DBTest(unittest.TestCase):
                     database_name=self.db_param.db_name, collection_name="test_collection",
                     server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file1)
         
-            with self.assertWarns(Warning):
+            with self.assertWarns(Warning): # should trigger a warning for schema rule violation
                 c1 = dbw.collection.count_documents({})
                 doc = {"timestamp": [1.1,2.0,3],
                                     "first_timestamp": 1,

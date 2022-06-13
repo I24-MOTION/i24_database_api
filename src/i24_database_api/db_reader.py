@@ -131,7 +131,7 @@ class DBReader:
         :param static_parameters: (Multiple) document fields across with to query directly from.
             e.g., ["direction", "starting_x"]
         :param static_parameters_query: Operators correspond to static_parameters
-            e.g., [("$in", -1), ("$gt", 100)]
+            e.g., [("$eq", -1), ("$gt", 100)]
         :return: iterator across range-segmented queries (each query executes when __next__() is called in iteration)
         """
         # # no bounds: raise error TODO: start querying from the min value
@@ -144,6 +144,13 @@ class DBReader:
         #         (range_less_than is None and range_less_equal is None):
         #     raise NotImplementedError("Infinite ranges not currently supported.")
 
+        # Save static query parameters to attributes
+        if static_parameters:
+            self.static_parameters = static_parameters
+            self.static_parameters_query = static_parameters_query
+        
+
+
         # if no range_increment, query everything between lower bound and upper bound
         if range_increment is None:
             query_filter = defaultdict(dict)            
@@ -154,9 +161,9 @@ class DBReader:
                 if values[i]: 
                     query_filter[range_parameter][operator] = values[i]
             # add static parameter filters if any is provided
-            if static_parameters:
-                for i, static_parameter in enumerate(static_parameters):
-                    query_filter[static_parameter][static_parameters_query[i][0]] = static_parameters_query[i][1]
+            if self.static_parameters:
+                for i, static_parameter in enumerate(self.static_parameters):
+                    query_filter[static_parameter][self.static_parameters_query[i][0]] = self.static_parameters_query[i][1]
             return self.read_query(query_filter=query_filter, query_sort=query_sort, limit=limit)
         
         else:
