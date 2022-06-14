@@ -1,7 +1,7 @@
 
 
 # Custom I-24 Database API package
-#### Version: 0.2
+#### Version: 0.3
 #### Date revised: 05/20/2022
 
 ### Installation
@@ -9,7 +9,7 @@ With the desired python venv / conda env activated, use the following command in
 
 `pip install git+https://github.com/yanb514/i24_database_api@<tag>`
 
-where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.2`), or the latest version (`latest`)
+where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.3`), or the latest version (`latest`)
     
 Then, to import the data reader or writer object and establish a connection:
 
