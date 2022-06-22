@@ -51,7 +51,7 @@ https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 
 ### Support features
 #### New in the latest version:
-- initialize with one linear. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
+- initialize with one liner. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
 ```
 default_param = {
   "default_host": "<mongodb-host>",
