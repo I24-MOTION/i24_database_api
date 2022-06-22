@@ -2,7 +2,7 @@
 
 # Custom I-24 Database API package
 #### Version: 0.4
-#### Date revised: 05/20/2022
+#### Date revised: 06/22/2022
 
 ### Installation
 With the desired python venv / conda env activated, use the following command in shell:
