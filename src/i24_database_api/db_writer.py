@@ -70,20 +70,24 @@ class DBWriter:
         self.db = self.client[database_name]
         
         
-        # check if the collection already exists and ask for user input to continue
+        # # check if the collection already exists and ask for user input to continue
+        # try: 
+        #     self.db.create_collection(collection_name)
+        # except: 
+        #     # warnings.warn("Collection {} already exists".format(collection_name), UserWarning)
+        #     a = input("!!! Fatal !!! Collection {} already exists. Press Y to reset (This will lose all data in the collection). Press N to exit. Press any other keys to continue with the existing collection".format(collection_name))
+        #     if a == "Y":
+        #         self.db[collection_name].drop()
+        #         self.db.create_collection(collection_name)
+        #     elif a == "N":
+        #         print("exit")
+        #         sys.exit(0)
+        #     else:
+        #         print("continue with the current collection")
         try: 
             self.db.create_collection(collection_name)
-        except: 
-            # warnings.warn("Collection {} already exists".format(collection_name), UserWarning)
-            a = input("!!! Fatal !!! Collection {} already exists. Press Y to reset (This will lose all data in the collection). Press N to exit. Press any other keys to continue with the existing collection".format(collection_name))
-            if a == "Y":
-                self.db[collection_name].drop()
-                self.db.create_collection(collection_name)
-            elif a == "N":
-                print("exit")
-                sys.exit(0)
-            else:
-                print("continue with the current collection")
+        except:
+            pass
         self.collection = self.db[collection_name]
         
     
