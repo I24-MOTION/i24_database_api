@@ -10,9 +10,10 @@ class DBReader:
         sticks around for a while to execute multiple queries.
     """
 
-    def __init__(self, host, port, username, password, database_name, collection_name):
+    def __init__(self, default_param, host=None, port=None, username=None, password=None, database_name=None, collection_name=None):
         """
         Connect to the specified MongoDB instance, test the connection, then set the specific database and collection.
+        :param default_param: Dictionary with default parameters. Specified parameters will overwrite default values
         :param host: Database connection host name.
         :param port: Database connection port number.
         :param username: Database authentication username.
@@ -20,6 +21,19 @@ class DBReader:
         :param database_name: Name of database to connect to (do not confuse with collection name).
         :param collection_name: Name of database collection from which to query.
         """
+        if not isinstance(default_param, dict): # convert to dictionary first
+            default_param = default_param.__dict__
+            
+        # Get default parameters
+        if not collection_name:
+            raise Exception("collection_name is required upon initiating DBWriter")
+        if not host: host = default_param["default_host"]
+        if not port: port = default_param["default_port"]
+        if not username: username = default_param["readonly_user"]
+        if not password: password = default_param["default_password"]
+        if not database_name: database_name = default_param["db_name"]
+
+        
         # Connect immediately upon instantiation.
         self.client = pymongo.MongoClient(host=host, port=port, username=username, password=password,
                                           connect=True, connectTimeoutMS=5000)
@@ -148,6 +162,8 @@ class DBReader:
         if static_parameters:
             self.static_parameters = static_parameters
             self.static_parameters_query = static_parameters_query
+        else:
+            self.static_parameters = None
         
 
 

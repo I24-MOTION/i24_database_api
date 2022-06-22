@@ -3,27 +3,26 @@ from src.i24_database_api.db_writer import DBWriter
 from i24_configparse import parse_cfg
 import os
 import unittest
+import json
 
 
 class DBTest(unittest.TestCase):
-    cwd = os.getcwd()
-    cfg = "./config"
-    config_path = os.path.join(cwd,cfg)
-    os.environ["user_config_directory"] = config_path
-    db_param = parse_cfg("TEST", cfg_name = "test_param.config")
+    
+    os.environ["user_config_directory"] = os.path.join(os.getcwd(), "config")
+    os.environ["my_config_section"] = "DEFAULT"
+    db_param = parse_cfg("my_config_section", cfg_name = "database_param.config")
 
     schema_file1 = 'config/raw_schema.json'
     schema_file2 = 'config/stitched_schema.json'
     schema_file3 = 'config/reconciled_schema.json'
+
 
     def test_reader_connection_read_privilege(self):
         '''
         test connection to dbr, and user insert privilege should be disabled (read-only user)
         '''
         try:
-            dbr = DBReader(host=self.db_param.default_host, port=self.db_param.default_port, 
-                        username=self.db_param.readonly_user, password=self.db_param.default_password,
-                        database_name=self.db_param.db_name, collection_name=self.db_param.raw_collection)
+            dbr = DBReader(self.db_param, collection_name="raw_trajectories_two")
         except Exception as e:
             self.fail(e)
             return
@@ -39,9 +38,7 @@ class DBTest(unittest.TestCase):
         test if DBReader properly sets up the indices for the collection
         '''
         try:
-            dbr = DBReader(host=self.db_param.default_host, port=self.db_param.default_port, 
-                        username=self.db_param.readonly_user, password=self.db_param.default_password,
-                        database_name=self.db_param.db_name, collection_name=self.db_param.raw_collection)
+            dbr = DBReader(self.db_param, collection_name="raw_trajectories_two")
         except Exception as e:
             self.fail(e)
             return
@@ -59,9 +56,7 @@ class DBTest(unittest.TestCase):
         no range increment, should return all within lower and upper bound
         '''
         try:
-            dbr = DBReader(host=self.db_param.default_host, port=self.db_param.default_port, 
-                        username=self.db_param.readonly_user, password=self.db_param.default_password,
-                        database_name=self.db_param.db_name, collection_name=self.db_param.raw_collection)
+            dbr = DBReader(self.db_param, collection_name="raw_trajectories_two")
         except Exception as e:
             self.fail(e)
             return
@@ -74,7 +69,8 @@ class DBTest(unittest.TestCase):
             except StopIteration:
                 break
             
-        self.assertTrue(last_time <= 330)
+        if last_time:
+            self.assertTrue(last_time <= 330)
 
         return
     
@@ -84,9 +80,7 @@ class DBTest(unittest.TestCase):
         with range increment, should return chunks of queried items
         '''
         try:
-            dbr = DBReader(host=self.db_param.default_host, port=self.db_param.default_port, 
-                        username=self.db_param.readonly_user, password=self.db_param.default_password,
-                        database_name=self.db_param.db_name, collection_name=self.db_param.raw_collection)
+            dbr = DBReader(self.db_param, collection_name="raw_trajectories_two")
         except Exception as e:
             self.fail(e)
             return
@@ -122,10 +116,7 @@ class DBTest(unittest.TestCase):
         '''
         try:
             with self.assertWarns(Warning): # if no schema, should throw an warning
-                dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                        username=self.db_param.default_username, password=self.db_param.default_password,
-                        database_name=self.db_param.db_name, collection_name="test_collection",
-                        server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=None)
+                dbw = DBWriter(self.db_param, collection_name="test_collection")
             
                 # try writing
                 c1 = dbw.collection.count_documents({})
@@ -145,10 +136,7 @@ class DBTest(unittest.TestCase):
         write to db by specifying keywords arguments
         '''
         try:
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file1)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file1)
         
             # write with schema rule
             c1 = dbw.collection.count_documents({})
@@ -161,10 +149,7 @@ class DBTest(unittest.TestCase):
             self.assertEqual(c2-c1, 1, "Message not successfully inserted with correct schema rule")
             
             # not according to schema rule, reset validator rule according to json file
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file1)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file1)
             
             with self.assertWarns(Warning): # should throw an warning   
                 c1 = dbw.collection.count_documents({})
@@ -186,10 +171,7 @@ class DBTest(unittest.TestCase):
         write to db by specifying keywords arguments
         '''
         try:
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file2)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file2)
         
             # write with schema rule
             c1 = dbw.collection.count_documents({})
@@ -200,10 +182,7 @@ class DBTest(unittest.TestCase):
             
             # not according to schema rule
             # not according to schema rule, reset validator rule according to json file
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file2)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file2)
             with self.assertWarns(Warning):
                 c1 = dbw.collection.count_documents({})
                 dbw.write_one_trajectory(fragment_ids = [1,2])
@@ -221,10 +200,7 @@ class DBTest(unittest.TestCase):
         write to db by specifying keywords arguments
         '''
         try:
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file3)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file3)
         
             # write with schema rule
             c1 = dbw.collection.count_documents({})
@@ -237,10 +213,7 @@ class DBTest(unittest.TestCase):
             self.assertEqual(c2-c1, 1, "Message not successfully inserted with correct schema rule")
             
             # not according to schema rule, reset validator rule according to json file
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file3)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file3)
             
             with self.assertWarns(Warning): # should throw an warning   
                 c1 = dbw.collection.count_documents({})
@@ -263,10 +236,7 @@ class DBTest(unittest.TestCase):
         write to db by wrapping all fields into a dictionary
         '''
         try:
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file1)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file1)
         
             # write with schema rule
             c1 = dbw.collection.count_documents({})
@@ -280,10 +250,7 @@ class DBTest(unittest.TestCase):
             self.assertEqual(c2-c1, 1, "Message (dict) not successfully inserted with correct schema rule")
             
             # not according to schema rule
-            dbw = DBWriter(host=self.db_param.default_host, port=self.db_param.default_port, 
-                    username=self.db_param.default_username, password=self.db_param.default_password,
-                    database_name=self.db_param.db_name, collection_name="test_collection",
-                    server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=self.schema_file1)
+            dbw = DBWriter(self.db_param, collection_name="test_collection", schema_file=self.schema_file1)
         
             with self.assertWarns(Warning): # should trigger a warning for schema rule violation
                 c1 = dbw.collection.count_documents({})
@@ -303,7 +270,25 @@ class DBTest(unittest.TestCase):
         
         return
     
-   
+    # @unittest.skip("")
+    def test_dbw_user_input(self):
+        '''
+        test connection to DBWriter, and user insert privilege should be enabled
+        '''
+        print("press any keys other than N")
+        dbw = DBWriter(self.db_param, collection_name="repeat_collection")
+
+
+        dbw = DBWriter(self.db_param, collection_name="repeat_collection")
+    
+        # try writing
+        c1 = dbw.collection.count_documents({})
+        dbw.write_one_trajectory(thread=False, key=1)
+        c2 = dbw.collection.count_documents({})
+        dbw.collection.drop()
+        self.assertEqual(c2-c1, 1, "Message not successfully inserted")
+            
+
     
 if __name__ == '__main__':
     unittest.main()

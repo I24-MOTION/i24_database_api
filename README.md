@@ -1,7 +1,7 @@
 
 
 # Custom I-24 Database API package
-#### Version: 0.3
+#### Version: 0.4
 #### Date revised: 05/20/2022
 
 ### Installation
@@ -49,7 +49,24 @@ https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 ### Requirements
 - pymongo
 
-### Latest version supports
+### Support features
+#### New in the latest version:
+- initialize with one linear. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
+```
+default_param = {
+  "default_host": "<mongodb-host>",
+  "default_port": 27017,
+  "default_username": "<mongodb-username>",
+  "default_password": "<mongodb-password>",
+  "db_name": "trajectories",
+  "raw_collection": "raw_trajectories",
+}
+dbr = DBReader(default_param, collection_name=default_param["raw_collection"])
+dbw = DBWriter(default_param, collection_name=default_param["raw_collection"])
+```
+Any arguments specified during initialization overwrites the default parameters
+
+#### Previous releases:
 - continuous range query
 - concurrent insert
 - schema enforcement (pass schema rule as .json file)
@@ -231,9 +248,9 @@ https://github.com/yanb514/i24_database_api/blob/main/test/config/reconciled_sch
 ### In future versions
 
 Additional future enhancements include: 
-- use logger in db_writer
-- simplify object initiation with less arguments
-- add built-in user privilege checking (but this step requires authentication). After temporary disable authentication in mongod.conf, one can do
+- Use logger in db_writer
+- Allow more customization in DBWriter, such as max time out etc.
+- Add built-in user privilege checking (but this step requires authentication). After temporary disable authentication in mongod.conf, one can do
 ```python
 dbr.client.admin.command({"usersInfo": "readonly" })['users'][0]['roles']
 ```

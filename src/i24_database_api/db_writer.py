@@ -2,6 +2,7 @@ import pymongo
 from threading import Thread
 import json
 import warnings
+import sys
 
 # TODO: replace print with log   
 class DBWriter:
@@ -9,8 +10,8 @@ class DBWriter:
     MongoDB database writer; uses asynchronous query mechanism in "motor" package by default.
     """
 
-    def __init__(self, host, port, username, password, database_name, collection_name,
-                 server_id, process_name, process_id, session_config_id, num_workers = 200, max_idle_time_ms = None, schema_file = None):
+    def __init__(self, default_param, host=None, port=None, username=None, password=None, database_name=None, collection_name=None,
+                 server_id=None, process_name=None, process_id=None, session_config_id=None, max_idle_time_ms = None, schema_file = None):
         """
         :param host: Database connection host name.
         :param port: Database connection port number.
@@ -23,6 +24,31 @@ class DBWriter:
         :param session_config_id: Configuration ID value that was assigned to this run/session of data processing.
         :param schema_file: json file path
         """
+        if not isinstance(default_param, dict): # convert to dictionary first
+            default_param = default_param.__dict__
+            
+        # Get default parameters
+        if not collection_name:
+            raise Exception("collection_name is required upon initiating DBWriter")
+        if not server_id and "server_id" not in default_param:
+            raise Exception("server_id is not found in database configuration")
+        if not process_name and "process_name" not in default_param:
+            raise Exception("process_name is not found in database configuration")
+        if not session_config_id and "session_config_id" not in default_param:
+            raise Exception("session_config_id is not found in database configuration")
+        if not process_id and "process_id" not in default_param:
+            raise Exception("process_id is not found in database configuration")
+            
+            
+        if not host: host = default_param["default_host"]
+        if not port: port = default_param["default_port"]
+        if not username: username = default_param["default_username"]
+        if not password: password = default_param["default_password"]
+        if not database_name: database_name = default_param["db_name"]
+        if not server_id: server_id = default_param["server_id"]
+        if not process_name: process_name = default_param["process_name"]
+        if not process_id: process_id = default_param["process_id"]
+        if not session_config_id: session_config_id = default_param["session_config_id"]
         
         self.server_id = server_id
         self.process_name = process_name
@@ -43,26 +69,34 @@ class DBWriter:
             
         self.db = self.client[database_name]
         
+        
+        # check if the collection already exists and ask for user input to continue
+        try: 
+            self.db.create_collection(collection_name)
+        except: 
+            # warnings.warn("Collection {} already exists".format(collection_name), UserWarning)
+            a = input("!!! Fatal !!! Collection {} already exists. Press Y to reset (This will lose all data in the collection). Press N to exit. Press any other keys to continue with the existing collection".format(collection_name))
+            if a == "Y":
+                self.db[collection_name].drop()
+                self.db.create_collection(collection_name)
+            elif a == "N":
+                print("exit")
+                sys.exit(0)
+            else:
+                print("continue with the current collection")
+        self.collection = self.db[collection_name]
+        
+    
+        # check for schema. If exists a schema json file, update the collection validator. Otherwise remove the validator        
         if schema_file: # add validator
             f = open(schema_file)
             collection_schema = json.load(f)
             f.close()
-            self.create_collection(collection_name, collection_schema)
+            self.db.command("collMod", collection_name, validator=collection_schema)
         else: # remove validator
             warnings.warn("No schema rule is specified, remove the validator in collection {}".format(collection_name), UserWarning)
-            self.create_collection(collection_name, None)
             self.db.command("collMod", collection_name, validator={})
-        self.collection = self.db[collection_name]
-        
-
-    def create_collection(self, collection_name, schema = None):
-        try: 
-            self.db.create_collection(collection_name)
-        except: 
-            warnings.warn("Collection {} already exists".format(collection_name), UserWarning)
-            pass
-        if schema:
-            self.db.command("collMod", collection_name, validator=schema)
+            
         
     def insert_one_schema_validation(self, collection, document):
         '''
