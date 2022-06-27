@@ -85,6 +85,7 @@ class DBWriter:
             self.schema = collection_schema
             f.close()
             self.db.command("collMod", collection_name, validator=collection_schema)
+    
         else: # remove validator
             warnings.warn("No schema rule is specified, remove the validator in collection {}".format(collection_name), UserWarning)
             self.db.command("collMod", collection_name, validator={})
@@ -97,7 +98,7 @@ class DBWriter:
         """
         if another_collection_name is None:
             self.collection.drop()
-            self.collection = self.db[self.collection_name]
+            self.db.create_collection(self.collection_name)
             if self.schema:
                 self.db.command("collMod", self.collection_name, validator=self.schema)
         else:
