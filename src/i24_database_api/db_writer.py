@@ -69,44 +69,48 @@ class DBWriter:
             
         self.db = self.client[database_name]
         
-        
-        # # check if the collection already exists and ask for user input to continue
-        # try: 
-        #     self.db.create_collection(collection_name)
-        # except: 
-        #     # warnings.warn("Collection {} already exists".format(collection_name), UserWarning)
-        #     a = input("!!! Fatal !!! Collection {} already exists. Press Y to reset (This will lose all data in the collection). Press N to exit. Press any other keys to continue with the existing collection".format(collection_name))
-        #     if a == "Y":
-        #         self.db[collection_name].drop()
-        #         self.db.create_collection(collection_name)
-        #     elif a == "N":
-        #         print("exit")
-        #         sys.exit(0)
-        #     else:
-        #         print("continue with the current collection")
         try: 
             self.db.create_collection(collection_name)
         except:
             pass
+        
         self.collection = self.db[collection_name]
+        self.collection_name = collection_name
         
     
         # check for schema. If exists a schema json file, update the collection validator. Otherwise remove the validator        
         if schema_file: # add validator
             f = open(schema_file)
             collection_schema = json.load(f)
+            self.schema = collection_schema
             f.close()
             self.db.command("collMod", collection_name, validator=collection_schema)
         else: # remove validator
             warnings.warn("No schema rule is specified, remove the validator in collection {}".format(collection_name), UserWarning)
             self.db.command("collMod", collection_name, validator={})
+            self.schema = None
+        
+        
+    def reset_collection(self, another_collection_name = None):
+        """
+        Reset self.collection. If another_collection_name is provided, reset that collection instead
+        """
+        if another_collection_name is None:
+            self.collection.drop()
+            self.collection = self.db[self.collection_name]
+            if self.schema:
+                self.db.command("collMod", self.collection_name, validator=self.schema)
+        else:
+            self.db[another_collection_name].drop()
+            self.db.create_collection[another_collection_name]
             
         
+        
     def insert_one_schema_validation(self, collection, document):
-        '''
+        """
         A wrapper around pymongo insert_one, which is a thread-safe operation
         bypass_document_validation = True: enforce schema
-        '''
+        """
         try:
             collection.insert_one(document, bypass_document_validation = False)
         except Exception as e: # schema violated
@@ -148,11 +152,22 @@ class DBWriter:
         else:
             # fire off a thread
             t = Thread(target=self.insert_one_schema_validation, args=(col, doc,))
+            # self.threads.append(t)
             t.daemon = True
             t.start()   
             
     
-    
+    # def join_threads(self):
+    #     """
+    #     For handling graceful shutdown. All threads for insert are joined
+    #     """
+    #     for t in self.threads:
+    #         t.join()
+        
+    def count(self):
+        return self.collection.count_documents({})
+
+
     def __del__(self):
         """
         Upon DBWriter deletion, close the client/connection.

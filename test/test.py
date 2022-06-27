@@ -275,10 +275,7 @@ class DBTest(unittest.TestCase):
         '''
         test connection to DBWriter, and user insert privilege should be enabled
         '''
-        print("press any keys other than N")
         dbw = DBWriter(self.db_param, collection_name="repeat_collection")
-
-
         dbw = DBWriter(self.db_param, collection_name="repeat_collection")
     
         # try writing
@@ -288,7 +285,25 @@ class DBTest(unittest.TestCase):
         dbw.collection.drop()
         self.assertEqual(c2-c1, 1, "Message not successfully inserted")
             
-
+    # @unittest.skip("")
+    def test_dbw_reset_collection(self):
+        '''
+        if reset a collection, the new/updated collection should be empty
+        '''
+        dbw = DBWriter(self.db_param, collection_name="repeat_collection")
+        doc = {"timestamp": [1.1,2.0,3],
+                            "first_timestamp": 1,
+                            "last_timestamp": 3.0,
+                            "x_position": [1.2]}
+        dbw.write_one_trajectory(**doc)
+        
+        dbw.reset_collection()
+        self.assertEqual(dbw.count(), 0, "Collection reset is not successfully.")
+        
+        
+    # @unittest.skip("")
+    def test_join_threads(self):
+        return
     
 if __name__ == '__main__':
     unittest.main()
