@@ -298,7 +298,13 @@ class DBTest(unittest.TestCase):
         dbw.write_one_trajectory(**doc)
         
         dbw.reset_collection()
+        
+        
+
+        dbw = DBWriter(self.db_param, collection_name = self.db_param.reconciled_collection, schema_file=self.schema_file3)
+        dbw.reset_collection()
         self.assertEqual(dbw.count(), 0, "Collection reset is not successfully.")
+        
         
         
     # @unittest.skip("")

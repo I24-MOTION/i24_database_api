@@ -99,6 +99,7 @@ class DBWriter:
         if another_collection_name is None:
             self.collection.drop()
             self.db.create_collection(self.collection_name)
+            self.collection = self.db[self.collection_name]
             if self.schema:
                 self.db.command("collMod", self.collection_name, validator=self.schema)
         else:
