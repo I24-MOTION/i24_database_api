@@ -25,9 +25,7 @@ collection_name = "garbage_dump_2"
 #         database_name=db_param.db_name, collection_name=collection_name,
 #         server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=None)
 
-dbr = DBReader(host=db_param.default_host, port=db_param.default_port, 
-            username=db_param.readonly_user, password=db_param.default_password,
-            database_name=db_param.db_name, collection_name=collection_name)
+dbr = DBReader(db_param, collection_name=collection_name)
 
 dbr.create_index(["first_timestamp", "last_timestamp", "starting_x", "ending_x"])
 print("collection name: ", collection_name)
