@@ -26,7 +26,7 @@ class DBReader:
             
         # Get default parameters
         if not collection_name:
-            raise Exception("collection_name is required upon initiating DBWriter")
+            raise Exception("collection_name is required upon initiating DBReader")
         if not host: host = default_param["default_host"]
         if not port: port = default_param["default_port"]
         if not username: username = default_param["readonly_user"]
