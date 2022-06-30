@@ -18,12 +18,8 @@ os.environ["user_config_directory"] = config_path
 os.environ["my_config_section"] = "DEFAULT"
 db_param = parse_cfg("my_config_section", cfg_name = "database_param.config")
 
-collection_name = "garbage_dump_2"
+collection_name = "tracking_v1"
 
-# dbw = DBWriter(host=db_param.default_host, port=db_param.default_port, 
-#         username=db_param.default_username, password=db_param.default_password,
-#         database_name=db_param.db_name, collection_name=collection_name,
-#         server_id=1, process_name=1, process_id=1, session_config_id=1, schema_file=None)
 
 dbr = DBReader(db_param, collection_name=collection_name)
 
@@ -48,8 +44,20 @@ print("max ending x: ", dbr.get_max("ending_x"))
 
 import random
 doc = dbr.collection.find()[random.randrange(dbr.count())]
-# print(doc)
-print(dbr.collection.distinct("direction"))
-plt.figure()
-plt.scatter(doc["timestamp"], doc["x_position"])
-plt.title(doc["_id"])
+print(doc["y_position"])
+# print(dbr.collection.distinct("direction"))
+# plt.figure()
+# plt.scatter(doc["timestamp"], doc["x_position"])
+# plt.title(doc["_id"])
+
+
+# Reset collection
+# reconciled_schema_path = "../../I24-trajectory-generation/config/reconciled_schema.json"
+# dbw = DBWriter(db_param, collection_name = "ground_truth_trajectories", schema_file=reconciled_schema_path)
+
+
+# dbw.reset_collection() # This line throws OperationFailure, not sure how to fix it
+# dbw.collection.drop()
+# print("ground_truth_trajectories" in dbw.db.list_collection_names())
+# print(dbw.db.list_collection_names())
+# print(dbw.collection.count_documents({}))
