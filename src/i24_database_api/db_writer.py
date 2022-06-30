@@ -72,6 +72,7 @@ class DBWriter:
         try: 
             self.db.create_collection(collection_name)
         except:
+            warnings.warn("{} already exists upon constructing DBWriter".format(collection_name) )
             pass
         
         self.collection = self.db[collection_name]

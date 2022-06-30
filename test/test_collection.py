@@ -11,14 +11,18 @@ from i24_configparse import parse_cfg
 import matplotlib.pyplot as plt
 import os
 
+
+collection_name = "tracking_v1_stitched"
+
+
+
+
 cwd = os.getcwd()
 cfg = "config"
 config_path = os.path.join(cwd,cfg)
 os.environ["user_config_directory"] = config_path
 os.environ["my_config_section"] = "DEFAULT"
 db_param = parse_cfg("my_config_section", cfg_name = "database_param.config")
-
-collection_name = "tracking_v1"
 
 
 dbr = DBReader(db_param, collection_name=collection_name)
@@ -42,9 +46,9 @@ print("max start x: ", dbr.get_max("starting_x"))
 print("min ending x: ", dbr.get_min("ending_x"))
 print("max ending x: ", dbr.get_max("ending_x"))
 
-import random
-doc = dbr.collection.find()[random.randrange(dbr.count())]
-print(doc["y_position"])
+# import random
+# doc = dbr.collection.find()[random.randrange(dbr.count())]
+# print(doc["y_position"])
 # print(dbr.collection.distinct("direction"))
 # plt.figure()
 # plt.scatter(doc["timestamp"], doc["x_position"])
@@ -52,12 +56,12 @@ print(doc["y_position"])
 
 
 # Reset collection
-# reconciled_schema_path = "../../I24-trajectory-generation/config/reconciled_schema.json"
-# dbw = DBWriter(db_param, collection_name = "ground_truth_trajectories", schema_file=reconciled_schema_path)
+reconciled_schema_path = "../../I24-trajectory-generation/config/reconciled_schema.json"
+dbw = DBWriter(db_param, collection_name = "reconciled_trajectories", schema_file=reconciled_schema_path)
 
 
-# dbw.reset_collection() # This line throws OperationFailure, not sure how to fix it
-# dbw.collection.drop()
-# print("ground_truth_trajectories" in dbw.db.list_collection_names())
-# print(dbw.db.list_collection_names())
+dbw.reset_collection() # This line throws OperationFailure, not sure how to fix it
+dbw.collection.drop()
+print("reconciled_trajectories" in dbw.db.list_collection_names())
+print(dbw.db.list_collection_names())
 # print(dbw.collection.count_documents({}))
