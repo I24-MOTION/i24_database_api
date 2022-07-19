@@ -59,6 +59,15 @@ https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 ### Requirements
 - pymongo
 
+### New in this version:
+- delete collections by
+```python
+dbw.delete_collection([list_to_be_deleted])
+```
+- mark collections to be safe from deletion:
+```python
+dbw.mark_safe([safe_collection_list])
+```
 
 #### Key features:
 - continuous range query
