@@ -1,7 +1,7 @@
 {
     "$jsonSchema": {
         "bsonType": "object",
-        "required": ["timestamp", "last_timestamp", "x_position"],
+        "required": ["timestamp", "x_position", "y_position"],
         "properties": {
             "configuration_id": {
                 "bsonType": "int",
@@ -76,17 +76,11 @@
                 "description": "vehicle length in feet."
                 },
             "width": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "double"
-                    },
+                "bsonType": "double",
                 "description": "vehicle width in feet"
                 },
             "height": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "double"
-                    },
+                "bsonType": "double",
                 "description": "vehicle height in feet"
                 },
             "direction": {
@@ -96,7 +90,7 @@
             "fragment_ids": {
                 "bsonType": "array",
                 "items": {
-                    "bsonType": ["string", "object"]
+                    "bsonType": ["string", "objectId"]
                     },
                 "description": "Fragments that are stitched to this trajectory."
                 } 
