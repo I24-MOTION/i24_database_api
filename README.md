@@ -69,7 +69,7 @@ dbw.delete_collection([list_to_be_deleted])
 dbw.mark_safe([safe_collection_list])
 ```
 
-#### Key features:
+### Key features:
 - continuous range query
 - concurrent insert
 - schema enforcement (pass schema rule as .json file)
