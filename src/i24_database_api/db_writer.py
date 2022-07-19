@@ -72,7 +72,7 @@ class DBWriter:
         try: 
             self.db.create_collection(collection_name)
         except:
-            warnings.warn("{} already exists upon constructing DBWriter".format(collection_name) )
+            print(f"{collection_name} already exists upon constructing DBWriter")
             pass
         
         self.collection = self.db[collection_name]
@@ -92,7 +92,38 @@ class DBWriter:
             self.db.command("collMod", collection_name, validator={})
             self.schema = None
         
+     
+    def mark_safe(self, col_list):
+        '''
+        Mark collections in col_list as safe so they won't be deleted using delete_collection()
+        '''
+        self.safe_collections = col_list
         
+    def delete_collection(self, col_list_to_delete = None):
+        """
+        Parameters
+        ----------
+        col_list_to_delete : LIST, optional
+            DESCRIPTION. a list of collection names to be dropped from self.db.
+            do not drop a collection if it is specified as 
+        """
+        curr_collection_name = self.collection._Collection__name
+        if not hasattr(self, "safe_collections"):
+            self.safe_collections = []
+            
+        for col in col_list_to_delete:
+            if col == curr_collection_name:
+                print(f"{col} cannot be deleted because it is the primary collection for DBWriter. Use dbw.collection.drop() instead.")
+                continue
+            if col not in self.safe_collections:
+                if self.db[col].drop():
+                    print(f"{col} successfully deleted from database {self.db._Database__name}")
+                else:
+                    print(f"{col} not in database {self.db._Database__name}")
+            else:
+                print(f"{col} is in safe_collections of {self.db._Database__name} and therefore cannot be deleted. Use dbw.db['{col}'].drop() instead.")
+            
+            
     def reset_collection(self, another_collection_name = None):
         """
         Reset self.collection. If another_collection_name is provided, reset that collection instead
