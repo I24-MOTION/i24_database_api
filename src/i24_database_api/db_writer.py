@@ -11,7 +11,7 @@ class DBWriter:
     """
 
     def __init__(self, default_param, host=None, port=None, username=None, password=None, database_name=None, collection_name=None,
-                 server_id=None, process_name=None, process_id=None, session_config_id=None, max_idle_time_ms = None, schema_file = None):
+                 server_id=None, session_config_id=None, max_idle_time_ms = None, schema_file = None):
         """
         :param host: Database connection host name.
         :param port: Database connection port number.
@@ -32,13 +32,9 @@ class DBWriter:
             raise Exception("collection_name is required upon initiating DBWriter")
         if not server_id and "server_id" not in default_param:
             raise Exception("server_id is not found in database configuration")
-        if not process_name and "process_name" not in default_param:
-            raise Exception("process_name is not found in database configuration")
         if not session_config_id and "session_config_id" not in default_param:
             raise Exception("session_config_id is not found in database configuration")
-        if not process_id and "process_id" not in default_param:
-            raise Exception("process_id is not found in database configuration")
-            
+        
             
         if not host: host = default_param["default_host"]
         if not port: port = default_param["default_port"]
@@ -46,13 +42,9 @@ class DBWriter:
         if not password: password = default_param["default_password"]
         if not database_name: database_name = default_param["db_name"]
         if not server_id: server_id = default_param["server_id"]
-        if not process_name: process_name = default_param["process_name"]
-        if not process_id: process_id = default_param["process_id"]
         if not session_config_id: session_config_id = default_param["session_config_id"]
         
         self.server_id = server_id
-        self.process_name = process_name
-        self.process_id = process_id
         self.session_config_id = session_config_id
 
         # Connect immediately upon instantiation.

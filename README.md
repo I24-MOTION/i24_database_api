@@ -12,13 +12,23 @@ With the desired python venv / conda env activated, use the following command in
 where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.3`), or the latest version (`latest`)
     
 Then, to import the data reader or writer object and establish a connection:
-
-```python
-from i24_database_api.db_reader import DBReader
-from i24_database_api.db_writer import DBWriter
-dbr = DBReader(host=host, port=port, username=username, password=password,
-                database_name=database_name, collection_name=collection_name)
+- initialize with one liner. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
+``` python
+default_param = {
+  "default_host": "<mongodb-host>",
+  "default_port": 27017,
+  "default_username": "<mongodb-username>",
+  "default_password": "<mongodb-password>",
+  "db_name": "trajectories",
+  "raw_collection": "raw_trajectories",
+  
+  "server_id": 1,
+  "session_config_id": 1
+}
+dbr = DBReader(default_param, collection_name=default_param["raw_collection"])
+dbw = DBWriter(default_param, collection_name=default_param["raw_collection"])
 ```
+Any arguments specified during initialization overwrites the default parameters.
 Access the corresponding client connection by
 ```
 dbr.client
@@ -49,24 +59,8 @@ https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 ### Requirements
 - pymongo
 
-### Support features
-#### New in the latest version:
-- initialize with one liner. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
-``` python
-default_param = {
-  "default_host": "<mongodb-host>",
-  "default_port": 27017,
-  "default_username": "<mongodb-username>",
-  "default_password": "<mongodb-password>",
-  "db_name": "trajectories",
-  "raw_collection": "raw_trajectories",
-}
-dbr = DBReader(default_param, collection_name=default_param["raw_collection"])
-dbw = DBWriter(default_param, collection_name=default_param["raw_collection"])
-```
-Any arguments specified during initialization overwrites the default parameters
 
-#### Previous releases:
+#### Key features:
 - continuous range query
 - concurrent insert
 - schema enforcement (pass schema rule as .json file)
