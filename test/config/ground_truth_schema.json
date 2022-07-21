@@ -72,24 +72,15 @@
                 "description": "Array of any string flags describing the data."
                 },
             "length": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "double"
-                    },
+                "bsonType": "double",
                 "description": "vehicle length in feet"
                 },
             "width": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "double"
-                    },
+                "bsonType": "double",
                 "description": "vehicle width in feet"
                 },
             "height": {
-                "bsonType": "array",
-                "items": {
-                    "bsonType": "double"
-                    },
+                "bsonType": "double",
                 "description": "vehicle height in feet"
                 },
             "direction": {
