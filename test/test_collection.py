@@ -17,6 +17,7 @@ collection_name = "tracking_v1_stitched"
 
 
 
+
 cwd = os.getcwd()
 cfg = "config"
 config_path = os.path.join(cwd,cfg)
@@ -57,11 +58,43 @@ dbr = DBReader(db_param, collection_name=collection_name)
 
 # Reset collection
 reconciled_schema_path = "config/reconciled_schema.json"
-dbw = DBWriter(db_param, collection_name = "reconciled_trajectories", schema_file=reconciled_schema_path)
+dbw = DBWriter(db_param, database_name = "trajectories", collection_name = "groundtruth_scene_1", schema_file=reconciled_schema_path)
 
 
-# dbw.reset_collection() # This line throws OperationFailure, not sure how to fix it
-# dbw.collection.drop()
-print("reconciled_trajectories" in dbw.db.list_collection_names())
+print("groundtruth_scene_1" in dbw.db.list_collection_names())
 print(dbw.db.list_collection_names())
 # print(dbw.collection.count_documents({}))
+
+
+#%%  make a copy
+# pipeline = [ {"$match": {}}, 
+#              {"$out": "groundtruth_scene_1_copy"},
+# ]
+# dbw.collection.aggregate(pipeline)
+
+#%% batch update from list of length to double
+from pymongo import UpdateOne
+dbw = DBWriter(db_param, database_name = "trajectories", collection_name = "groundtruth_scene_1", schema_file=None)
+col = dbw.db["groundtruth_scene_1"]
+
+
+batch=[]
+for d in col.find({}):
+    batch.append(
+        UpdateOne(
+            {'_id':d["_id"]}, 
+            {
+                "$set":
+                    {
+                        "length":d["length"][0] ,
+                        "width":d["width"][0] ,
+                        "height":d["height"][0] 
+                    }, 
+            
+            }, upsert=False)
+        )
+
+col.bulk_write(batch, ordered=False)
+
+                    
+

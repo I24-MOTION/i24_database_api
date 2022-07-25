@@ -4,3 +4,4 @@
 
 # ignore a specific file
 database_param.config
+test_transform.py
