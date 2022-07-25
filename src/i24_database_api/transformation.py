@@ -9,6 +9,8 @@ import pandas as pd
 import pymongo
 import math
 import json
+import queue
+
 
 def round_and_truncate(number, digits) -> float:
     '''
@@ -204,7 +206,11 @@ class Transformation:
             batch_update_connection.put(batch_operations)
 
             while True:
-                traj_doc = change_stream_connection.get()
+                try:
+                    traj_doc = change_stream_connection.get(timeout=3)
+                except queue.Empty:
+                    print("transformed all")
+                    break
                 # print("[transformation] received doc")
                 batch_operations = self.transform_trajectory(MODE, resample(traj_doc, MODE))
                 batch_update_connection.put(batch_operations)

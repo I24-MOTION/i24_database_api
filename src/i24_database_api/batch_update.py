@@ -42,13 +42,7 @@ class BatchUpdate:
         self.staleness_threshold=staleness_threshold
         self.connect_to_db(config)
     
-    def connect_to_db(self, config: str=None,
-                            client_username: str=None, 
-                            client_password: str=None, 
-                            client_host: str=None, 
-                            client_port: int=None, 
-                            database: str=None, 
-                            collection: str=None,):
+    def connect_to_db(self, config_params):
         """
         Connects to a MongoDB instance
 
@@ -60,16 +54,14 @@ class BatchUpdate:
         :param database: Name of database to connect to (do not confuse with collection name).
         :param collection: Name of collection to connect to.
         """
+        
 
-        if config:
-            with open('config.json') as f:
-                config_params = json.load(f)
-                client_host=config_params['host']
-                client_username=config_params['username']
-                client_password=config_params['password']
-                client_port=config_params['port']
-                database=config_params['write_database_name']
-                collection=config_params['write_collection_name']
+        client_host=config_params['host']
+        client_username=config_params['username']
+        client_password=config_params['password']
+        client_port=config_params['port']
+        database=config_params['write_database_name']
+        collection=config_params['write_collection_name']
 
         self.client=MongoClient(host=client_host,
                     port=client_port,
@@ -79,7 +71,10 @@ class BatchUpdate:
                     connectTimeoutMS=5000)
     
         self._database=self.client[database]
+        # reset collection
+        self._database[collection].drop()
         self._collection=self._database[collection]
+        
         # create timestamp index
         self._collection.create_index('timestamp', unique=True)
         try:
@@ -283,6 +278,7 @@ class BatchUpdate:
                 if batch_update_connection.empty() and len(self._cache_data)>0:
                     self.write_to_mongo(self.clear_cache(MODE))
                     print('emptied cache')
+                    break
                 continue
             # print("mode in batch_udpate"+obj_from_transformation)
             
@@ -301,6 +297,6 @@ class BatchUpdate:
         except:
             pass
 
-def run(MODE, batch_update_connection):
-    batch_update_obj = BatchUpdate("config.json")
+def run(config, MODE, batch_update_connection):
+    batch_update_obj = BatchUpdate(config)
     batch_update_obj.main_loop(MODE, batch_update_connection)
