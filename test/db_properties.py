@@ -16,7 +16,7 @@ if __name__ == '__main__':
         parameters = json.load(f)
     
     
-    parameters["collection_name"] = "quizzical_panda--RAW_GT1"
+    parameters["collection_name"] = "pristine_stork--RAW_GT1"
     client = DBClient(**parameters)
     
     #%%
@@ -36,10 +36,10 @@ if __name__ == '__main__':
     print("min ending x: ", client.get_min("ending_x"))
     print("max ending x: ", client.get_max("ending_x"))
     
-    # print(client.list_collection_names())
+    client.list_collection_names()
     
     #%%
-    client.transform()
+    # client.transform()
     
     
     
