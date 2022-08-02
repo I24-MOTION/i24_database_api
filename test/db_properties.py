@@ -5,39 +5,46 @@ Created on Tue May 24 11:02:50 2022
 
 @author: yanbing_wang
 """
-from i24_database_api.db_reader import DBReader
-from i24_configparse.parse import parse_cfg
+from src.i24_database_api import DBClient
+from i24_configparse import parse_cfg
 import os
+import json
 
-
-cwd = os.getcwd()
-cfg = "./config"
-config_path = os.path.join(cwd,cfg)
-os.environ["user_config_directory"] = config_path
-parameters = parse_cfg("DEBUG", cfg_name = "test_param.config")
-
-
-collection_name = "ground_truth_two"
-dbr = DBReader(host=parameters.default_host, port=parameters.default_port, username=parameters.readonly_user,   
-               password=parameters.default_password,
-               database_name=parameters.db_name, collection_name=collection_name)
-
-# dbr.create_index(["ID", "first_timestamp", "last_timestamp", "starting_x", "ending_x"])
-print("collection name: ", collection_name)
-print("number of traj: ", dbr.count())
-
-print("min ID: ", dbr.get_min("ID"))
-print("max ID: ", dbr.get_max("ID"))
-
-print("min start time: ", dbr.get_min("first_timestamp"))
-print("max start time: ", dbr.get_max("first_timestamp"))
-
-print("min end time: ", dbr.get_min("last_timestamp"))
-print("max end time: ", dbr.get_max("last_timestamp"))
-
-print("min start x: ", dbr.get_min("starting_x"))
-print("max start x: ", dbr.get_max("starting_x"))
-
-print("min ending x: ", dbr.get_min("ending_x"))
-print("max ending x: ", dbr.get_max("ending_x"))
-
+# parameters path
+if __name__ == '__main__':
+    with open("config/db_param.json") as f:
+        parameters = json.load(f)
+    
+    
+    parameters["collection_name"] = "quizzical_panda--RAW_GT1"
+    client = DBClient(**parameters)
+    
+    #%%
+    # dbr.create_index(["ID", "first_timestamp", "last_timestamp", "starting_x", "ending_x"])
+    print("collection name: ", client.collection_name)
+    print("number of traj: ", client.count())
+    
+    print("min start time: ", client.get_min("first_timestamp"))
+    print("max start time: ", client.get_max("first_timestamp"))
+    
+    print("min end time: ", client.get_min("last_timestamp"))
+    print("max end time: ", client.get_max("last_timestamp"))
+    
+    print("min start x: ", client.get_min("starting_x"))
+    print("max start x: ", client.get_max("starting_x"))
+    
+    print("min ending x: ", client.get_min("ending_x"))
+    print("max ending x: ", client.get_max("ending_x"))
+    
+    # print(client.list_collection_names())
+    
+    #%%
+    client.transform()
+    
+    
+    
+    
+    
+    
+    
+    

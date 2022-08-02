@@ -1,16 +1,23 @@
 
 import pymongo
 from collections import defaultdict
-import warnings  
+import warnings 
+import json 
+from threading import Thread
+from multiprocessing import Process, Queue, Manager
+from .transformation import run as trans_run
+from .batch_update import run as batch_run
+from ctypes import c_char_p
         
         
-class DBReader:
+class DBClient:
     """
     MongoDB database reader, specific to a collection in the database. This object is typically fairly persistent, i.e.,
         sticks around for a while to execute multiple queries.
     """
 
-    def __init__(self, default_param, host=None, port=None, username=None, password=None, database_name=None, collection_name=None):
+    def __init__(self, host=None, port=27017, username=None, password=None, database_name=None, collection_name=None,
+                 server_id=None, session_config_id=None, max_idle_time_ms = None, schema_file = None):
         """
         Connect to the specified MongoDB instance, test the connection, then set the specific database and collection.
         :param default_param: Dictionary with default parameters. Specified parameters will overwrite default values
@@ -21,18 +28,6 @@ class DBReader:
         :param database_name: Name of database to connect to (do not confuse with collection name).
         :param collection_name: Name of database collection from which to query.
         """
-        if not isinstance(default_param, dict): # convert to dictionary first
-            default_param = default_param.__dict__
-            
-        # Get default parameters
-        if not collection_name:
-            raise Exception("collection_name is required upon initiating DBReader")
-        if not host: host = default_param["default_host"]
-        if not port: port = default_param["default_port"]
-        if not username: username = default_param["readonly_user"]
-        if not password: password = default_param["default_password"]
-        if not database_name: database_name = default_param["db_name"]
-
         
         # Connect immediately upon instantiation.
         self.client = pymongo.MongoClient(host=host, port=port, username=username, password=password,
@@ -43,11 +38,29 @@ class DBReader:
             warnings.warn("Server not available")
             raise ConnectionError("Could not connect to MongoDB.")
 
-        self.db = self.client[database_name]
-        self.collection = self.db[collection_name]
+        if database_name is not None:
+            self.db = self.client[database_name]
+        if collection_name is not None:
+            try: 
+                self.db.create_collection(collection_name)
+                self.collection_name = collection_name
+            except:
+                print(f"{collection_name} already exists upon constructing DBWriter")
+                pass
+            
+        # check for schema. If exists a schema json file, update the collection validator. Otherwise remove the validator        
+        if schema_file: # add validator
+            f = open(schema_file)
+            collection_schema = json.load(f)
+            self.schema = collection_schema
+            f.close()
+            self.db.command("collMod", collection_name, validator=collection_schema)
+    
+        
         
         # create indices
-        self.create_index(["first_timestamp", "last_timestamp", "starting_x", "ending_x", "configuration_id", "_id"])
+        index_list = ["first_timestamp", "last_timestamp", "starting_x", "ending_x", "_id"]
+        self.create_index(index_list)
 
         # Class variables that will be set and reset during iterative read across a range.
         self.range_iter_parameter = None
@@ -58,8 +71,20 @@ class DBReader:
         self.range_iter_stop = None
         self.range_iter_stop_closed_interval = None
         
-        # For live read
-        self.change_stream_cursor = None
+
+        # other parameters
+        self.server_id = server_id
+        self.session_config_id = session_config_id
+        
+        # save other infomation
+        self.safe_collections = set()
+        self.host = host
+        self.port = port
+        self.username = username
+        self.password = password
+        
+        
+        
 
     def __del__(self):
         """
@@ -70,6 +95,197 @@ class DBReader:
             self.client.close()
         except pymongo.errors.PyMongoError:
             pass
+        
+    # simple query functions on collection level
+    
+    def db_name(self):
+        return self.db._Database__name
+    
+    def collection_name(self):
+        return self.collection._Collection__name
+    
+    
+    def get_first(self, index_name):
+        '''
+        get the first document from MongoDB by index_name
+        TODO: should match index_name
+        '''
+        return self.collection.find_one(sort=[(index_name, pymongo.ASCENDING)])
+        
+    def get_last(self, index_name):
+        '''
+        get the last document from MongoDB by index_name 
+        TODO: should match index_name
+        '''
+        return self.collection.find_one(sort=[(index_name, pymongo.DESCENDING)])
+    
+    def find_one(self, index_name, index_value):
+        return self.collection.find_one({index_name: index_value})
+        
+    def is_empty(self):
+        return self.count() == 0
+        
+    def get_keys(self): 
+        oneKey = self.collection.find().limit(1)
+        for key in oneKey:
+            return key.keys()
+        
+    def create_index(self, indices):
+        try:
+            all_field_names = self.collection.find_one({}).keys()
+            existing_indices = self.collection.index_information().keys()
+            for index in indices:
+                if index in all_field_names:
+                    if index+"_1" not in existing_indices and index+"_-1" not in existing_indices:
+                        self.collection.create_index(index)     
+        except Exception as e:
+            print(e)
+            pass
+        return
+    
+    def get_range(self, index_name, start, end): 
+        return self.collection.find({
+            index_name : { "$gte" : start, "$lt" : end}}).sort(index_name, pymongo.ASCENDING)
+    
+    def count(self):
+        return self.collection.count_documents({})
+    
+    def get_min(self, index_name):
+        return self.get_first(index_name)[index_name]
+    
+    def get_max(self, index_name):
+        return self.get_last(index_name)[index_name]
+    
+    def exists(self, index_name, value):
+        return self.collection.count_documents({index_name: value }, limit = 1) != 0
+    
+    def drop(self, collection_name):
+        self.db[collection_name].drop()
+        
+    def list_collection_names(self):
+        return self.db.list_collection_names()
+    
+    
+    def mark_safe(self, col_list):
+        '''
+        Mark collections in col_list as safe so they won't be deleted using delete_collection()
+        '''
+        self.safe_collections.add(col_list)
+        
+    def delete_collections(self, col_list_to_delete = None):
+        """
+        drop collections from list
+        except for the ones in safe_collections
+        """    
+        for col in col_list_to_delete:
+            if col not in self.safe_collections:
+                self.db[col].drop()
+                print(f"{col} successfully deleted from database {self.db._Database__name}")
+                
+            else:
+                print(f"{col} is in safe_collections of {self.db._Database__name}. Use db['{col}'].drop() instead.")
+            
+    def insert_one_schema_validation(self, collection, document):
+        """
+        A wrapper around pymongo insert_one, which is a thread-safe operation
+        bypass_document_validation = True: enforce schema
+        """
+        try:
+            collection.insert_one(document, bypass_document_validation = False)
+        except Exception as e: # schema violated
+            warnings.warn("Schema violated. Insert anyways. Full error: {}".format(e), UserWarning)
+            collection.insert_one(document, bypass_document_validation = True)
+            
+        
+    def write_one_trajectory(self, thread = True, collection_name = None, **kwargs):
+        """
+        Write an arbitrary document specified in kwargs to a specified collection. No schema enforcment.
+        :param thread: a boolean indicating if multi-threaded write is used
+        :param collection_name: a string for write collection destination
+        
+        Use case:
+        e.g.1. 
+        dbw.write_one_trajectory(timestamp = [1,2,3], x_position = [12,22,33])
+        e.g.2. 
+        traj = {"timestamp": [1,2,3], "x_position": [12,22,33]}
+        dbw.write_one_trajectory(**traj)
+        """
+        if collection_name is not None:
+            col = self.db[collection_name] # get default collection during construction
+        else:
+            col = self.collection
+        
+        doc = {} 
+        for key,val in kwargs.items():
+            doc[key] = val
+
+        # add extra fields in doc
+        configuration_id = self.session_config_id
+        compute_node_id = self.server_id   
+        
+        doc["configuration_id"] = configuration_id
+        doc["compute_node_id"] = compute_node_id
+        
+        if not thread:
+            self.insert_one_schema_validation(col, doc)
+        else:
+            # fire off a thread
+            t = Thread(target=self.insert_one_schema_validation, args=(col, doc,))
+            # self.threads.append(t)
+            t.daemon = True
+            t.start()   
+            
+            
+            
+            
+            
+    def transform(self, read_database_name=None, read_collection_name=None):
+        # TODO: overwrite collection if already exist?
+        # re-wrap parameters
+        # client object cannot be forked
+        
+        if read_database_name is None:
+            read_database_name = self.db._Database__name
+        if read_collection_name is None:
+            read_collection_name = self.collection._Collection_name
+            
+        config = {
+            	"host": self.host,
+            	"port": self.port,
+            	"username": self.username,
+            	"password": self.password,
+            	"read_database_name": read_database_name,
+            	"read_collection_name": read_collection_name,
+            	"write_database_name": "transformed",
+            	"write_collection_name": read_collection_name
+        }
+
+
+        manager=Manager()
+        mode = manager.Value(c_char_p,"")
+        
+        # initialize Queue for multiprocessing
+        # - transform pushes mongoDB operation requests to this queue, which batch_update would listen from
+        batch_update_connection = Queue()
+        
+        # start 2 child processes
+        print("[Main] Starting Transformation process...")
+        proc_transform = Process(target=trans_run, args=(config, mode, None, batch_update_connection, ))
+        proc_transform.start()
+
+        print("[Main] Starting Batch Update process...")
+        proc_batch_update = Process(target=batch_run, args=(config, mode,batch_update_connection, ))
+        proc_batch_update.start()
+        
+        proc_transform.join()
+        proc_batch_update.join()
+        print("[Main] TRANSFORMATION TO THE DARK SIDE COMPLETE.")
+        
+        
+        
+        
+        
+    
 
     def read_query(self, query_filter, query_sort = None,
                    limit = 0):
@@ -218,61 +434,7 @@ class DBReader:
                 or self.range_iter_stop_closed_interval is None:
             raise AttributeError("Iterable DBReader only supported via `read_query_range(...).")
         return DBReadRangeIterator(self)
-
-    # simple query functions
-    def get_first(self, index_name):
-        '''
-        get the first document from MongoDB by index_name
-        TODO: should match index_name
-        '''
-        return self.collection.find_one(sort=[(index_name, pymongo.ASCENDING)])
-        
-    def get_last(self, index_name):
-        '''
-        get the last document from MongoDB by index_name 
-        TODO: should match index_name
-        '''
-        return self.collection.find_one(sort=[(index_name, pymongo.DESCENDING)])
     
-    def find_one(self, index_name, index_value):
-        return self.collection.find_one({index_name: index_value})
-        
-    def is_empty(self):
-        return self.count() == 0
-        
-    def get_keys(self): 
-        oneKey = self.collection.find().limit(1)
-        for key in oneKey:
-            return key.keys()
-        
-    def create_index(self, indices):
-        try:
-            all_field_names = self.collection.find_one({}).keys()
-            existing_indices = self.collection.index_information().keys()
-            for index in indices:
-                if index in all_field_names:
-                    if index+"_1" not in existing_indices and index+"_-1" not in existing_indices:
-                        self.collection.create_index(index)     
-        except Exception as e:
-            warnings.warn("Index not created. Full error: {}".format(e))
-            pass
-        return
-    
-    def get_range(self, index_name, start, end): 
-        return self.collection.find({
-            index_name : { "$gte" : start, "$lt" : end}}).sort(index_name, pymongo.ASCENDING)
-    
-    def count(self):
-        return self.collection.count_documents({})
-    
-    def get_min(self, index_name):
-        return self.get_first(index_name)[index_name]
-    
-    def get_max(self, index_name):
-        return self.get_last(index_name)[index_name]
-    
-    def exists(self, index_name, value):
-        return self.collection.count_documents({index_name: value }, limit = 1) != 0
     
     
 

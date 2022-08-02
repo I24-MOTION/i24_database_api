@@ -84,6 +84,7 @@ class DBWriter:
             self.db.command("collMod", collection_name, validator={})
             self.schema = None
         
+    
      
     def mark_safe(self, col_list):
         '''

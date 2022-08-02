@@ -1,6 +1,7 @@
 
 # ignore all .log files
 *.log
+*.config
 
 # ignore a specific file
 database_param.config
