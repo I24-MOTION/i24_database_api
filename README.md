@@ -15,7 +15,7 @@ With the desired python venv / conda env activated, use the following command in
 
 where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.3`), or the latest version (`latest`)
     
-####Then, establish a connection to client
+#### Then, establish a connection to client
  ```default_param``` a dictionary read from a config file (template see test_param_template.config).
 ``` python
 default_param = {
@@ -26,43 +26,43 @@ default_param = {
 }
 dbc = DBClient(**default_param)
 ```
-####Pass optional database_name and collection_name to connect to a specific database and/or collection:
+#### Pass optional database_name and collection_name to connect to a specific database and/or collection:
 ```python
 dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>)
 ```
 Either ways ```dbc.client``` is essentially a wrapper of ```pymongo.MongoClient``` object, and inherits all properties and functions of it.
 
-####List all collections (if database_name is specified)
+#### List all collections (if database_name is specified)
 ```python
 dbc.list_collection_names(), or equivalently
 dbc.db.list_collection_names()
 ```
 
-####Easily switch to another database:
+#### Easily switch to another database:
 ```python
 newdb = dbc.client[<new_database_name>]
 newdb.list_collection_names()
 ```
 
-####Connect to the last updated collection in a database:
+#### Connect to the last updated collection in a database:
 ```python
 dbc = DBClient(**default_param, database_name = <database_name>, latest_collection=True) # dbc.collection is now the latest collection
 print(dbc.collection_name)
 ```
 
 
-####Drop (delete) a collection:
+#### Drop (delete) a collection:
 ```python
 dbr.collection.drop(), or
 dbr.db[<some_collection_name>].drop(), or access another db
 dbr.client[<some_database>][<some_collection_name>].drop()
 ```
 
-####Bulk delete collections in current database (```dbc.db```) by:
+#### Bulk delete collections in current database (```dbc.db```) by:
 ```python
 dbc.delete_collection([list_of_cols_to_be_deleted])
 ```
-####Mark collections to be safe from deletion:
+#### Mark collections to be safe from deletion:
 ```python
 dbc.mark_safe([safe_collection_list])
 ```
