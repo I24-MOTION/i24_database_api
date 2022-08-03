@@ -26,7 +26,7 @@ default_param = {
 }
 dbc = DBClient(**default_param)
 ```
-If connect to a specific database (optional) or collection (optional):
+Pass optional database_name and collection_name to connect to a specific database and/or collection:
 ```python
 dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>)
 ```
