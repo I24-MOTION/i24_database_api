@@ -17,7 +17,7 @@ if __name__ == '__main__':
     
     # parameters["database_name"] = None
     # parameters["collection_name"] = ""
-    client = DBClient(**parameters, database_name = "trajectories")
+    client = DBClient(**parameters, database_name = "reconciled")
     print(client.collection_name)
     
     #%%
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     # print("min ending x: ", client.get_min("ending_x"))
     # print("max ending x: ", client.get_max("ending_x"))
     
-    # print(client.list_collection_names())
+    print(client.list_collection_names())
     
     
     #%%
