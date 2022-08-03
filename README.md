@@ -32,32 +32,33 @@ dbc = DBClient(**default_param, database_name = <database_name>, collection_name
 ```
 Either ways ```dbc.client``` is essentially a wrapper of ```pymongo.MongoClient``` object, and inherits all properties and functions of it.
 
-List all collections
+List all collections (if database_name is specified)
 ```python
 dbc.list_collection_names(), or equivalently
 dbc.db.list_collection_names()
 ```
+
 Easily switch to another database:
 ```python
 newdb = dbc.client[<new_database_name>]
 newdb.list_collection_names()
 ```
+
 Connect to the last updated collection in a database:
 ```python
-dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>, latest_collection=True)
+dbc = DBClient(**default_param, database_name = <database_name>, latest_collection=True) # dbc.collection is now the latest collection
 print(dbc.collection_name)
 ```
 
 
-
-Drop (delete) a collection
+Drop (delete) a collection:
 ```python
 dbr.collection.drop(), or
 dbr.db[<some_collection_name>].drop(), or access another db
 dbr.client[<some_database>][<some_collection_name>].drop()
 ```
 
-Bulk delete collections in current database (```dbc.db```) by
+Bulk delete collections in current database (```dbc.db```) by:
 ```python
 dbc.delete_collection([list_of_cols_to_be_deleted])
 ```
@@ -67,12 +68,6 @@ dbc.mark_safe([safe_collection_list])
 ```
 
 
-
-User roles:
-More details: 
-https://stackoverflow.com/questions/23943651/mongodb-admin-user-not-authorized
-https://www.codexpedia.com/devops/mongodb-authentication-setting/
-https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 
 
 
@@ -142,7 +137,7 @@ Otherwise, it gives a warning "no schema provided", and proceeds without validat
 
 A collection can also be created after the DBWriter object is instantiated, simply call
 ```python
-dbw.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
+dbc.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
 ```
 
 
@@ -150,7 +145,7 @@ dbw.create_collection(collection_name = collection_name, schema = schema_file) #
 When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
 
 ```python
-col = dbw.collection
+col = dbc.collection
 
 # insert a document of python dictionary format -> pass it as kwargs
 doc1 = {
@@ -160,12 +155,12 @@ doc1 = {
         "x_position": [1.2]} 
 
 print("# documents in collection before insert: ", col.count_documents({}))
-dbw.write_one_trajectory(**doc1) 
+dbc.write_one_trajectory(**doc1) 
 print("# documents in collection after insert: ", col.count_documents({}))
 
 # insert a document using keyword args directly
 print("# documents in collection before insert: ", col.count_documents({}))
-dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
+dbc.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
                            first_timestamp = 1.0,
                            last_timestamp = 3.0,
                            x_position = [1.2])
@@ -264,3 +259,10 @@ Additional future enhancements include:
 dbr.client.admin.command({"usersInfo": "readonly" })['users'][0]['roles']
 ```
 to get all the user info. Check the specified user has only "read only" privilege or not. Similar for DBWriter.
+
+User roles:
+More details: 
+https://stackoverflow.com/questions/23943651/mongodb-admin-user-not-authorized
+https://www.codexpedia.com/devops/mongodb-authentication-setting/
+https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
+
