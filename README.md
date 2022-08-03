@@ -15,8 +15,8 @@ With the desired python venv / conda env activated, use the following command in
 
 where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.3`), or the latest version (`latest`)
     
-Then, to import the data reader or writer object and establish a connection to client
-- initialize with one liner. ```default_param``` a dictionary read from a config file (template see test_param_template.config).
+####Then, establish a connection to client
+ ```default_param``` a dictionary read from a config file (template see test_param_template.config).
 ``` python
 default_param = {
   "host": "<mongodb-host>",
@@ -26,43 +26,43 @@ default_param = {
 }
 dbc = DBClient(**default_param)
 ```
-Pass optional database_name and collection_name to connect to a specific database and/or collection:
+####Pass optional database_name and collection_name to connect to a specific database and/or collection:
 ```python
 dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>)
 ```
 Either ways ```dbc.client``` is essentially a wrapper of ```pymongo.MongoClient``` object, and inherits all properties and functions of it.
 
-List all collections (if database_name is specified)
+####List all collections (if database_name is specified)
 ```python
 dbc.list_collection_names(), or equivalently
 dbc.db.list_collection_names()
 ```
 
-Easily switch to another database:
+####Easily switch to another database:
 ```python
 newdb = dbc.client[<new_database_name>]
 newdb.list_collection_names()
 ```
 
-Connect to the last updated collection in a database:
+####Connect to the last updated collection in a database:
 ```python
 dbc = DBClient(**default_param, database_name = <database_name>, latest_collection=True) # dbc.collection is now the latest collection
 print(dbc.collection_name)
 ```
 
 
-Drop (delete) a collection:
+####Drop (delete) a collection:
 ```python
 dbr.collection.drop(), or
 dbr.db[<some_collection_name>].drop(), or access another db
 dbr.client[<some_database>][<some_collection_name>].drop()
 ```
 
-Bulk delete collections in current database (```dbc.db```) by:
+####Bulk delete collections in current database (```dbc.db```) by:
 ```python
 dbc.delete_collection([list_of_cols_to_be_deleted])
 ```
-Mark collections to be safe from deletion:
+####Mark collections to be safe from deletion:
 ```python
 dbc.mark_safe([safe_collection_list])
 ```
@@ -71,7 +71,7 @@ dbc.mark_safe([safe_collection_list])
 
 
 
-### Other features:
+### Other collection level operations (dbc.collection has to be specified):
 - continuous range query
 - async insert
 - schema enforcement (pass schema rule as .json file)
@@ -86,7 +86,7 @@ This API follows pymongo implementation, a more abstracted version of pymongo's 
 ```python
 query_filter = {"_id": {"$in": fragment_ids}}
 query_sort = [("last_timestamp", "ASC")])
-dbr.read_query(query_filter, query_sort)
+dbc.read_query(query_filter, query_sort)
 ```
 
 
@@ -95,7 +95,7 @@ dbr.read_query(query_filter, query_sort)
 The following code demonstrates the use of the iterative query based on a query parameter. 
 
 ```python
-rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None)
+rri = dbc.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None)
 while True:
     try:
         print(next(rri)["ID"]) # access documents in rri one by one
@@ -104,7 +104,7 @@ while True:
         break
 
 print("Using for-loop to read range")
-for result in dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None):
+for result in dbc.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None):
     print(result["ID"])
 print("END OF ITERATION")
 ```
@@ -122,22 +122,14 @@ last timestamp: 325.07, starting_x: 32076.31, ID: 400089.0
 last timestamp: 328.93, starting_x: 30132.66, ID: 3600090.0
 ```
 
-## Usage examples for DBWriter
-
-Instantiate a DBWriter object
-```python
-dbw = DBWriter(host=host, port=port, username=username, password=password,
-                database_name=database_name, server_id=server_id, process_name=process_name, 
-                process_id=process_id, session_config_id=session_config_id,schema_file=schema_file)
-```
 
 #### Create a collection
 A collection with specified ```collection_name``` is automatically created upon instantiating the DBWriter object. If a schema file (in json) is given, the writer object adds validation rule to the collection based on the json file. 
 Otherwise, it gives a warning "no schema provided", and proceeds without validation rule.
 
-A collection can also be created after the DBWriter object is instantiated, simply call
+A collection can also be created after the DBClient object is instantiated, simply call
 ```python
-dbc.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
+dbc.db.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
 ```
 
 
@@ -154,17 +146,13 @@ doc1 = {
         "last_timestamp": 3.0,
         "x_position": [1.2]} 
 
-print("# documents in collection before insert: ", col.count_documents({}))
 dbc.write_one_trajectory(**doc1) 
-print("# documents in collection after insert: ", col.count_documents({}))
 
-# insert a document using keyword args directly
-print("# documents in collection before insert: ", col.count_documents({}))
+# insert a document using keyword args directly (if collection_name is None, use the current collection dbc.collection)
 dbc.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
                            first_timestamp = 1.0,
                            last_timestamp = 3.0,
                            x_position = [1.2])
-print("# documents in collection after insert: ", col.count_documents({}))
 ```
 As of v0.2, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
 
