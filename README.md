@@ -1,8 +1,12 @@
 
 
 # Custom I-24 Database API package
-#### Version: 0.4
-#### Date revised: 06/22/2022
+
+#### Version: main
+#### Date revised: 08/03/2022
+
+### Requirements
+- pymongo
 
 ### Installation
 With the desired python venv / conda env activated, use the following command in shell:
@@ -11,74 +15,76 @@ With the desired python venv / conda env activated, use the following command in
 
 where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.3`), or the latest version (`latest`)
     
-Then, to import the data reader or writer object and establish a connection:
-- initialize with one liner. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
+Then, to import the data reader or writer object and establish a connection to client
+- initialize with one liner. ```default_param``` a dictionary read from a config file (template see test_param_template.config).
 ``` python
 default_param = {
-  "default_host": "<mongodb-host>",
-  "default_port": 27017,
-  "default_username": "<mongodb-username>",
-  "default_password": "<mongodb-password>",
-  "db_name": "trajectories",
-  "raw_collection": "raw_trajectories",
-  
-  "server_id": 1,
-  "session_config_id": 1
+  "host": "<mongodb-host>",
+  "port": 27017,
+  "username": "<mongodb-username>",
+  "password": "<mongodb-password>"
 }
-dbr = DBReader(default_param, collection_name=default_param["raw_collection"])
-dbw = DBWriter(default_param, collection_name=default_param["raw_collection"])
+dbc = DBClient(**default_param)
 ```
-Any arguments specified during initialization overwrites the default parameters.
-Access the corresponding client connection by
+If connect to a specific database (optional) or collection (optional):
+```python
+dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>)
 ```
-dbr.client
-dbw.client
+Either ways ```dbc.client``` is essentially a wrapper of ```pymongo.MongoClient``` object, and inherits all properties and functions of it.
+
+List all collections
+```python
+dbc.list_collection_names(), or equivalently
+dbc.db.list_collection_names()
+```
+Easily switch to another database:
+```python
+newdb = dbc.client[<new_database_name>]
+newdb.list_collection_names()
+```
+Connect to the last updated collection in a database:
+```python
+dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>, latest_collection=True)
+print(dbc.collection_name)
 ```
 
-Access the corresponding database connection by
-```
-dbr.db
-dbw.db
+
+
+Drop (delete) a collection
+```python
+dbr.collection.drop(), or
+dbr.db[<some_collection_name>].drop(), or access another db
+dbr.client[<some_database>][<some_collection_name>].drop()
 ```
 
-Note that only one collection is assigned to each reader or writer object for the convenience of read and write. For example:
+Bulk delete collections in current database (```dbc.db```) by
+```python
+dbc.delete_collection([list_of_cols_to_be_deleted])
 ```
-dbr.collection
-```
-gives you the same access as the following command
-```
-dbr.client.db.collection
+Mark collections to be safe from deletion:
+```python
+dbc.mark_safe([safe_collection_list])
 ```
 
-DBReader's user role should be read-only, and DBWriter's user role should be write-only. To access or change user privileges, specify usernames and privileges in mongod shell.
+
+
+User roles:
 More details: 
 https://stackoverflow.com/questions/23943651/mongodb-admin-user-not-authorized
 https://www.codexpedia.com/devops/mongodb-authentication-setting/
 https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
 
-### Requirements
-- pymongo
 
-### New in this version:
-- delete collections by
-```python
-dbw.delete_collection([list_to_be_deleted])
-```
-- mark collections to be safe from deletion:
-```python
-dbw.mark_safe([safe_collection_list])
-```
 
-### Key features:
+### Other features:
 - continuous range query
-- concurrent insert
+- async insert
 - schema enforcement (pass schema rule as .json file)
 
-## Usage examples for DBReader
 
 #### Query a single document
 ```python
-dbr.find_one(index_name, value)
+dbc.find_one(index_name, value)
 ```
 #### Query based on filter
 This API follows pymongo implementation, a more abstracted version of pymongo's collection.find()
