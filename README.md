@@ -1,8 +1,12 @@
 
 
 # Custom I-24 Database API package
-#### Version: 0.4
-#### Date revised: 06/22/2022
+
+#### Version: main
+#### Date revised: 08/03/2022
+
+### Requirements
+- pymongo
 
 ### Installation
 With the desired python venv / conda env activated, use the following command in shell:
@@ -11,81 +15,84 @@ With the desired python venv / conda env activated, use the following command in
 
 where `<tag>` is either a branch name (e.g. `main`), a tag name (e.g. `v0.3`), or the latest version (`latest`)
     
-Then, to import the data reader or writer object and establish a connection:
-- initialize with one liner. ```default_param``` can be either an Object or a dictionary read from a config file (template see test_param_template.config). ```collection_name``` is required.
+#### Then, establish a connection to client
+ ```default_param``` a dictionary read from a config file (template see test_param_template.config).
 ``` python
 default_param = {
-  "default_host": "<mongodb-host>",
-  "default_port": 27017,
-  "default_username": "<mongodb-username>",
-  "default_password": "<mongodb-password>",
-  "db_name": "trajectories",
-  "raw_collection": "raw_trajectories",
-  
-  "server_id": 1,
-  "session_config_id": 1
+  "host": "<mongodb-host>",
+  "port": 27017,
+  "username": "<mongodb-username>",
+  "password": "<mongodb-password>"
 }
-dbr = DBReader(default_param, collection_name=default_param["raw_collection"])
-dbw = DBWriter(default_param, collection_name=default_param["raw_collection"])
+dbc = DBClient(**default_param)
 ```
-Any arguments specified during initialization overwrites the default parameters.
-Access the corresponding client connection by
-```
-dbr.client
-dbw.client
-```
-
-Access the corresponding database connection by
-```
-dbr.db
-dbw.db
-```
-
-Note that only one collection is assigned to each reader or writer object for the convenience of read and write. For example:
-```
-dbr.collection
-```
-gives you the same access as the following command
-```
-dbr.client.db.collection
-```
-
-DBReader's user role should be read-only, and DBWriter's user role should be write-only. To access or change user privileges, specify usernames and privileges in mongod shell.
-More details: 
-https://stackoverflow.com/questions/23943651/mongodb-admin-user-not-authorized
-https://www.codexpedia.com/devops/mongodb-authentication-setting/
-https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
-
-### Requirements
-- pymongo
-
-### New in this version:
-- delete collections by
+#### Pass optional database_name and collection_name to connect to a specific database and/or collection:
 ```python
-dbw.delete_collection([list_to_be_deleted])
+dbc = DBClient(**default_param, database_name = <database_name>, collection_name = <collection_name>)
 ```
-- mark collections to be safe from deletion:
+Either ways ```dbc.client``` is essentially a wrapper of ```pymongo.MongoClient``` object, and inherits all properties and functions of it.
+
+#### List all collections (if database_name is specified)
 ```python
-dbw.mark_safe([safe_collection_list])
+dbc.list_collection_names(), or equivalently
+dbc.db.list_collection_names()
 ```
 
-### Key features:
+#### Easily switch to another database:
+```python
+newdb = dbc.client[<new_database_name>]
+newdb.list_collection_names()
+```
+
+#### Connect to the last updated collection in a database:
+```python
+dbc = DBClient(**default_param, database_name = <database_name>, latest_collection=True) # dbc.collection is now the latest collection
+print(dbc.collection_name)
+```
+
+
+#### Drop (delete) a collection:
+```python
+dbc.collection.drop(), or
+dbc.db[<some_collection_name>].drop(), or access another db
+dbc.client[<some_database>][<some_collection_name>].drop()
+```
+
+#### Reset a collection: 
+```python
+dbc.reset_collection()
+```
+Reset would empty the currect collection but still keep the reference dbc.collection to that emptied collection.
+
+#### Bulk delete collections in current database (```dbc.db```) by:
+```python
+dbc.delete_collection([list_of_cols_to_be_deleted])
+```
+#### Mark collections to be safe from deletion:
+```python
+dbc.mark_safe([safe_collection_list])
+```
+
+
+
+
+
+### Other collection level operations (dbc.collection has to be specified):
 - continuous range query
-- concurrent insert
+- async insert
 - schema enforcement (pass schema rule as .json file)
 
-## Usage examples for DBReader
 
 #### Query a single document
 ```python
-dbr.find_one(index_name, value)
+dbc.find_one(index_name, value)
 ```
 #### Query based on filter
 This API follows pymongo implementation, a more abstracted version of pymongo's collection.find()
 ```python
 query_filter = {"_id": {"$in": fragment_ids}}
 query_sort = [("last_timestamp", "ASC")])
-dbr.read_query(query_filter, query_sort)
+dbc.read_query(query_filter, query_sort)
 ```
 
 
@@ -94,7 +101,7 @@ dbr.read_query(query_filter, query_sort)
 The following code demonstrates the use of the iterative query based on a query parameter. 
 
 ```python
-rri = dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None)
+rri = dbc.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None)
 while True:
     try:
         print(next(rri)["ID"]) # access documents in rri one by one
@@ -103,7 +110,7 @@ while True:
         break
 
 print("Using for-loop to read range")
-for result in dbr.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None):
+for result in dbc.read_query_range(range_parameter='last_timestamp', range_greater_equal=300, range_less_than=330, range_increment=None):
     print(result["ID"])
 print("END OF ITERATION")
 ```
@@ -121,22 +128,14 @@ last timestamp: 325.07, starting_x: 32076.31, ID: 400089.0
 last timestamp: 328.93, starting_x: 30132.66, ID: 3600090.0
 ```
 
-## Usage examples for DBWriter
-
-Instantiate a DBWriter object
-```python
-dbw = DBWriter(host=host, port=port, username=username, password=password,
-                database_name=database_name, server_id=server_id, process_name=process_name, 
-                process_id=process_id, session_config_id=session_config_id,schema_file=schema_file)
-```
 
 #### Create a collection
 A collection with specified ```collection_name``` is automatically created upon instantiating the DBWriter object. If a schema file (in json) is given, the writer object adds validation rule to the collection based on the json file. 
 Otherwise, it gives a warning "no schema provided", and proceeds without validation rule.
 
-A collection can also be created after the DBWriter object is instantiated, simply call
+A collection can also be created after the DBClient object is instantiated, simply call
 ```python
-dbw.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
+dbc.db.create_collection(collection_name = collection_name, schema = schema_file) # schema is optional
 ```
 
 
@@ -144,7 +143,7 @@ dbw.create_collection(collection_name = collection_name, schema = schema_file) #
 When bulk write to database, this package offers the choice to do non-blocking (concurrent) insert:
 
 ```python
-col = dbw.collection
+col = dbc.collection
 
 # insert a document of python dictionary format -> pass it as kwargs
 doc1 = {
@@ -153,17 +152,13 @@ doc1 = {
         "last_timestamp": 3.0,
         "x_position": [1.2]} 
 
-print("# documents in collection before insert: ", col.count_documents({}))
-dbw.write_one_trajectory(**doc1) 
-print("# documents in collection after insert: ", col.count_documents({}))
+dbc.write_one_trajectory(**doc1) 
 
-# insert a document using keyword args directly
-print("# documents in collection before insert: ", col.count_documents({}))
-dbw.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
+# insert a document using keyword args directly (if collection_name is None, use the current collection dbc.collection)
+dbc.write_one_trajectory(collection_name = "test_collection" , timestamp = [1.1,2.0,3.0],
                            first_timestamp = 1.0,
                            last_timestamp = 3.0,
                            x_position = [1.2])
-print("# documents in collection after insert: ", col.count_documents({}))
 ```
 As of v0.2, if a document violates the schema, it bypasses the validation check and throws a warning in the console. 
 
@@ -258,3 +253,10 @@ Additional future enhancements include:
 dbr.client.admin.command({"usersInfo": "readonly" })['users'][0]['roles']
 ```
 to get all the user info. Check the specified user has only "read only" privilege or not. Similar for DBWriter.
+
+User roles:
+More details: 
+https://stackoverflow.com/questions/23943651/mongodb-admin-user-not-authorized
+https://www.codexpedia.com/devops/mongodb-authentication-setting/
+https://www.mongodb.com/docs/manual/tutorial/manage-users-and-roles/
+
