@@ -53,10 +53,16 @@ print(dbc.collection_name)
 
 #### Drop (delete) a collection:
 ```python
-dbr.collection.drop(), or
-dbr.db[<some_collection_name>].drop(), or access another db
-dbr.client[<some_database>][<some_collection_name>].drop()
+dbc.collection.drop(), or
+dbc.db[<some_collection_name>].drop(), or access another db
+dbc.client[<some_database>][<some_collection_name>].drop()
 ```
+
+#### Reset a collection: 
+```python
+dbc.reset_collection()
+```
+Reset would empty the currect collection but still keep the reference dbc.collection to that emptied collection.
 
 #### Bulk delete collections in current database (```dbc.db```) by:
 ```python
