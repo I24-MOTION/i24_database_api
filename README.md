@@ -73,9 +73,14 @@ dbc.delete_collection([list_of_cols_to_be_deleted])
 dbc.mark_safe([safe_collection_list])
 ```
 
-
-
-
+#### Transform documents from vehicle ID indexed to timestamp indexed
+Authors: Zi Nean Teoh and Lisa Liu. Details see
+https://github.com/yanb514/i24_database_api/blob/main/src/i24_database_api/README.md
+```python
+dbc.transform(read_database_name=None, read_collection_name=None,
+                  write_database_name="transformed", write_collection_name=None)
+```
+Default transforms the current collection to time-indexed collection of the same name in "transformed" database.
 
 ### Other collection level operations (dbc.collection has to be specified):
 - continuous range query
