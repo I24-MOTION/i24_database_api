@@ -16,7 +16,7 @@ import json
 import time
 
 class BatchUpdate:
-    def __init__(self, config, staleness_threshold=25):
+    def __init__(self, config, staleness_threshold=50):
         """
         :param staleness_threshold: Number of new documents read that do not update a time until that
         time is inserted to the transformed collection
