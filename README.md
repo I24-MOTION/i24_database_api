@@ -17,11 +17,6 @@ dbc.transform2(read_database_name=None, read_collection_name=None,
 Default transforms the current collection to time-indexed collection of the same name in "transformed_beta" database.
 The timestamp-indexed documents have the schema:
 ```python
-
-Yanbing Wang
-  5:13 PM
-There are more collections in database transformed_beta , if you’d like to experiment more on the visualization!
-schema is
 {
          {
             "_id":
