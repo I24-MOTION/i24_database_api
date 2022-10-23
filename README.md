@@ -3,11 +3,48 @@
 # Custom I-24 Database API package
 
 #### Version: main
-#### Date revised: 08/03/2022
+#### Date revised: 10/23/2022
 
 ### Requirements
 - pymongo
 
+### Latest feature
+#### Transform documents from vehicle ID indexed to timestamp indexed (v2)
+```python
+dbc.transform2(read_database_name=None, read_collection_name=None,
+                  write_database_name="transformed_beta", write_collection_name=None)
+```
+Default transforms the current collection to time-indexed collection of the same name in "transformed_beta" database.
+The timestamp-indexed documents have the schema:
+```python
+
+Yanbing Wang
+  5:13 PM
+There are more collections in database transformed_beta , if you’d like to experiment more on the visualization!
+schema is
+{
+         {
+            "_id":
+            "timetamp": t1,
+            "eb": {
+                "traj1_id": [centerx, centery, l, w, dir, v],
+                "traj2_id": [...],
+                ...
+                },
+            "wb": {
+                "traj3_id": [centerx, centery, l, w, dir, v],
+                "traj4_id": [...],
+                ...
+                },
+            },
+        {
+           "_id":
+           "timetamp": t2,
+           ...,
+           ...
+           },
+    }   
+```
 ### Installation
 With the desired python venv / conda env activated, use the following command in shell:
 
