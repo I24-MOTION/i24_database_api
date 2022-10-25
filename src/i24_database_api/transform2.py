@@ -66,6 +66,11 @@ def transform2(direction, config_params):
         connect=True,
         connectTimeoutMS=5000)
 
+    # add schema to the meta collection
+    schema_col = client[config_params["write_database_name"]]["__METADATA__"]
+    schema_col.update_one({"description":"schema"}, {"$set": {
+        config_params["write_collection_name"]:"xylwdv"}}, upsert=True)
+    
     from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
     to_collection = client[config_params["write_database_name"]][config_params["write_collection_name"]]
     
