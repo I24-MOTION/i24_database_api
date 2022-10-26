@@ -11,6 +11,7 @@ from multiprocessing.pool import ThreadPool
 import numpy as np
 import pandas as pd
 import pymongo
+from pymongo import UpdateOne
 
 dt = 0.04
 
@@ -88,15 +89,18 @@ def transform2(direction, config_params):
     stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
     stale_thresh = 500 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
     last_poped_t = 0
-    pool = ThreadPool(processes=100)
+    # pool = ThreadPool(processes=100)
     
     dir = 1 if direction=="eb" else -1
     all_trajs = from_collection.find({"direction": dir})
+    
+    bulk_write_cmd = []
+    
     for traj in all_trajs:
         _id, l,w = traj["_id"], traj["length"], traj["width"]
         if isinstance(l, float):
             n = len(traj["x_position"])
-            l,w = [l]*n, [w]*n # dump but ok
+            l,w = [l]*n, [w]*n # dumb but ok
             
         velocity = list(dir*np.diff(traj["x_position"])/dt)
         velocity.append(velocity[-1])
@@ -168,18 +172,33 @@ def transform2(direction, config_params):
             last_poped_t = t
             stale.pop(t)
             # change d to value.objectid: array, so that it does not reset the value field, but only update it
-            d={direction+"."+key: val for key,val in d.items()}
-            pool.apply_async(thread_update_one, (to_collection, {"timestamp": round(t,2)},{"$set": d},))
+            query = {"timestamp": round(t,2)}
+            update = {"$set": {direction+"."+key: val for key,val in d.items()}}
+            bulk_write_cmd.append(UpdateOne(filter=query, update=update, upsert=True))
+            
+            # pool.apply_async(thread_update_one, (to_collection, {"timestamp": round(t,2)},{"$set": d},))
+        
+        # bulk write all the complete documents to db
+        if len(bulk_write_cmd) > 1000:
+            to_collection.bulk_write(bulk_write_cmd, ordered=False)
+            bulk_write_cmd = []
+            
             
     # write the rest of lru to database
     print("Flush out the rest in LRU cache")
     while len(lru) > 0:
         t, d = lru.popitem(last=False) # pop first
-        d={direction+"."+key: val for key,val in d.items()}
-        pool.apply_async(thread_update_one, (to_collection, {"timestamp": round(t,2)},{"$set": d},))
+        # d={direction+"."+key: val for key,val in d.items()}
+        # pool.apply_async(thread_update_one, (to_collection, {"timestamp": round(t,2)},{"$set": d},))
+        query = {"timestamp": round(t,2)}
+        update = {"$set": {direction+"."+key: val for key,val in d.items()}}
+        bulk_write_cmd.append(UpdateOne(filter=query, update=update, upsert=True))
         
-    pool.close()
-    pool.join()
+    if len(bulk_write_cmd) > 0:
+        to_collection.bulk_write(bulk_write_cmd, ordered=False)
+        
+    # pool.close()
+    # pool.join()
     # print("Final timestamps in temp: {}".format(to_collection.count_documents({})))   
     del to_collection
     del from_collection
