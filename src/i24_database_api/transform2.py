@@ -86,7 +86,7 @@ def transform2(direction, config_params):
         
     lru = OrderedDict()
     stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
-    stale_thresh = 100 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database
+    stale_thresh = 500 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
     last_poped_t = 0
     pool = ThreadPool(processes=100)
     
