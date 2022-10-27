@@ -24,12 +24,13 @@ def thread_insert_one(collection, doc):
     collection.insert_one(doc)
     return
     
-def transform2(direction, config_params):
+def transform2(direction, config_params, start_time=None, end_time=None):
     '''
     direction: eb or wb
-    from_collection: mongodb collection for source
-    to_collection: mongodb collection destination
+    query trajectories that starts in range [start_time, end_time)
+    if they are specified. Otherwise from the b
     ** for static from_collection only **
+    
     Similar to transform but of different schema
     temp schema:
     {
@@ -92,8 +93,16 @@ def transform2(direction, config_params):
     # pool = ThreadPool(processes=100)
     
     dir = 1 if direction=="eb" else -1
-    all_trajs = from_collection.find({"direction": dir})
-    
+    # specify query
+    if not start_time and not end_time: # query the entire collection
+        all_trajs = from_collection.find({"direction": dir})
+    elif start_time and end_time: # if time range is specified, query only the time range [start_time, end_time)
+        all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": start_time, "$lt": end_time}})
+    elif start_time:
+        all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": start_time}})
+    elif end_time:
+        all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$lt": end_time}})
+        
     bulk_write_cmd = []
     
     for traj in all_trajs:
