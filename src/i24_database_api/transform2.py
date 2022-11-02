@@ -245,7 +245,6 @@ if __name__ == '__main__':
     
     transform2(chunk_size=20)
     
-    del dbc
     
     
     
