@@ -31,7 +31,7 @@ def decimal_range(start, stop, increment):
         
         
         
-def transform2(direction, config_params, chunk_size=None):
+def transform2(direction, config_params, chunk_size=50):
     '''
     direction: eb or wb
     query trajectories that starts in range [start_time, end_time)
@@ -63,6 +63,8 @@ def transform2(direction, config_params, chunk_size=None):
            },
     }   
     '''
+    print("Chunk size: ", chunk_size)
+    
     client_host=config_params['host']
     client_username=config_params['username']
     client_password=config_params['password']
@@ -245,7 +247,7 @@ if __name__ == '__main__':
     
     transform2(chunk_size=20)
     
-    
+    # print("not implemented")
     
     
     
