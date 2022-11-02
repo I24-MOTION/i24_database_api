@@ -111,8 +111,11 @@ def transform2(direction, config_params, start_time=None, end_time=None):
             n = len(traj["x_position"])
             l,w = [l]*n, [w]*n # dumb but ok
             
-        velocity = list(dir*np.diff(traj["x_position"])/dt)
-        velocity.append(velocity[-1])
+        try:
+            velocity = traj["velocity"]
+        except KeyError:
+            velocity = list(dir*np.diff(traj["x_position"])/dt)
+            velocity.append(velocity[-1])
     
         # increment stale
         for k in stale:  
