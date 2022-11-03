@@ -45,12 +45,12 @@ def transform2(direction, config_params, chunk_size=50):
             "_id":
             "timetamp": t1,
             "eb": {
-                "traj1_id": [centerx, centery, l, w, dir, v],
+                "traj1_id": [centerx, centery, l, w, dir, v, videonode],
                 "traj2_id": [...],
                 ...
                 },
             "wb": {
-                "traj3_id": [centerx, centery, l, w, dir, v],
+                "traj3_id": [centerx, centery, l, w, dir, v, videonode],
                 "traj4_id": [...],
                 ...
                 },
@@ -82,17 +82,18 @@ def transform2(direction, config_params, chunk_size=50):
     first_doc = schema_col.find_one({})
     if not first_doc:
         schema_col.update_one({}, {"$set": {
-            "schema."+config_params["write_collection_name"]:"xylwdv"}}, upsert=True)
+            "schema."+config_params["write_collection_name"]:"xylwdvn"}}, upsert=True)
     else:
         schema_col.update_one({"_id":first_doc["_id"]}, {"$set": {
-            "schema."+config_params["write_collection_name"]:"xylwdv"}}, upsert=True)
+            "schema."+config_params["write_collection_name"]:"xylwdvn"}}, upsert=True)
     
     from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
     to_collection = client[config_params["write_database_name"]][config_params["write_collection_name"]]
     
+    from_collection.create_index("compute_node_id")
     to_collection.create_index("timestamp")
     time_series_field = ["timestamp", "x_position", "y_position", "length", "width"]
-        
+      
     lru = OrderedDict()
     stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
     stale_thresh = 1000 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
@@ -107,7 +108,11 @@ def transform2(direction, config_params, chunk_size=50):
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
         print("Query range: {:.2f}-{:.2f}".format(s, s+chunk_size))
-        all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": s, "$lt": s+chunk_size}})
+        all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": s, "$lt": s+chunk_size}}).sort("first_timestamp",1)
+        
+        # project videonode
+        
+        
         
     # if not start_time and not end_time: # query the entire collection
     #     all_trajs = from_collection.find({"direction": dir})
@@ -119,9 +124,13 @@ def transform2(direction, config_params, chunk_size=50):
     #     all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$lt": end_time}})
         
         bulk_write_cmd = []
+        cache = {}
         
         for traj in all_trajs:
-            _id, l,w = traj["_id"], traj["length"], traj["width"]
+            
+            _id, l,w,node = traj["_id"], traj["length"], traj["width"], traj["compute_node_id"]
+            cache[_id] = node
+            
             if isinstance(l, float):
                 n = len(traj["x_position"])
                 l,w = [l]*n, [w]*n # dumb but ok
@@ -177,7 +186,8 @@ def transform2(direction, config_params, chunk_size=50):
                                         df["length"][t],
                                         df["width"][t], 
                                         dir,
-                                        df["velocity"][t]]
+                                        df["velocity"][t],
+                                        cache[_id]]
                 except: # t does not exists in lru yet
                     if t <= last_poped_t:
                         # meaning t was poped pre-maturely
@@ -188,7 +198,8 @@ def transform2(direction, config_params, chunk_size=50):
                                         df["length"][t],
                                         df["width"][t], 
                                         dir,
-                                        df["velocity"][t]]}
+                                        df["velocity"][t],
+                                        cache[_id]]}
                 lru.move_to_end(t, last=True)
                 stale[t] = 0 # reset staleness
                 
