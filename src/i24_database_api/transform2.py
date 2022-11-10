@@ -7,11 +7,11 @@ Created on Fri Oct 21 11:39:27 2022
 """
 
 from collections import OrderedDict, defaultdict
-from multiprocessing.pool import ThreadPool
 import numpy as np
 import pandas as pd
 import pymongo
 from pymongo import UpdateOne
+from bson.objectid import ObjectId
 
 dt = 0.04
         
@@ -31,7 +31,7 @@ def decimal_range(start, stop, increment):
         
         
         
-def transform2(direction, config_params, chunk_size=50):
+def transform2(direction, config_params, chunk_size=50, write_meta=False):
     '''
     direction: eb or wb
     query trajectories that starts in range [start_time, end_time)
@@ -61,7 +61,22 @@ def transform2(direction, config_params, chunk_size=50):
            ...,
            ...
            },
-    }   
+    }  
+        
+    schema in transformed_beta.__METADATA__
+        {
+            _id: RUN_ID,
+            name: ""
+            description: "",
+            start_time: float,
+            end_time: float,
+            num_objects: int,
+            duration: end_time-start_time,
+            start_x:
+            end_x:
+            road_segment_length: 
+        }
+            
     '''
     print("Chunk size: ", chunk_size)
     
@@ -77,18 +92,41 @@ def transform2(direction, config_params, chunk_size=50):
         connect=True,
         connectTimeoutMS=5000)
 
-    # add schema to the meta collection
-    schema_col = client[config_params["write_database_name"]]["__METADATA__"]
-    first_doc = schema_col.find_one({})
-    if not first_doc:
-        schema_col.update_one({}, {"$set": {
-            "schema."+config_params["write_collection_name"]:"xylwdvn"}}, upsert=True)
-    else:
-        schema_col.update_one({"_id":first_doc["_id"]}, {"$set": {
-            "schema."+config_params["write_collection_name"]:"xylwdvn"}}, upsert=True)
-    
+
     from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
     to_collection = client[config_params["write_database_name"]][config_params["write_collection_name"]]
+    
+    # add schema to the meta collection
+    if write_meta:
+        meta_col = client[config_params["write_database_name"]]["__METADATA__"]
+        start_time = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
+        end_time = from_collection.find_one(sort=[("last_timestamp", -1)])["last_timestamp"]
+        start_x = from_collection.find_one(sort=[("starting_x", 1)])["starting_x"]
+        end_x = from_collection.find_one(sort=[("ending_x", -1)])["ending_x"]
+        
+        meta_doc = {
+            "_id": config_params['read_collection_name'],
+            "name": "",
+            "description": "",
+            "start_time": start_time,
+            "end_time": end_time,
+            "num_objects": from_collection.estimated_document_count(),
+            "duration": end_time-start_time,
+            "start_x": start_x,
+            "end_x": end_x, 
+            "road_segment_length": abs(start_x-end_x)
+            }
+        try:
+            meta_col.insert_one(meta_doc, bypass_document_validation=True)
+        except:
+            _id = config_params['read_collection_name']
+            meta_doc.pop("_id")
+            meta_col.update_one({"_id": _id}, {"$set": meta_doc}, upsert=True)
+            
+            
+        print("Collection information is written to __METADATA__")
+    
+    
     
     from_collection.create_index("compute_node_id")
     to_collection.create_index("timestamp")
@@ -109,19 +147,6 @@ def transform2(direction, config_params, chunk_size=50):
     for s in decimal_range(start, end, chunk_size):
         print("Query range: {:.2f}-{:.2f}".format(s, s+chunk_size))
         all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": s, "$lt": s+chunk_size}}).sort("first_timestamp",1)
-        
-        # project videonode
-        
-        
-        
-    # if not start_time and not end_time: # query the entire collection
-    #     all_trajs = from_collection.find({"direction": dir})
-    # elif start_time and end_time: # if time range is specified, query only the time range [start_time, end_time)
-    #     all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": start_time, "$lt": end_time}})
-    # elif start_time:
-    #     all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": start_time}})
-    # elif end_time:
-    #     all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$lt": end_time}})
         
         bulk_write_cmd = []
         cache = {}
