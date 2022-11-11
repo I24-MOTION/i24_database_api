@@ -119,9 +119,6 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
     
     time_series_field = ["timestamp", "x_position", "y_position", "length", "width"]
       
-    lru = OrderedDict()
-    attr_lru = LRUCache(1000)
-    stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
     stale_thresh = 500 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
     # last_poped_t = 0
     
@@ -133,7 +130,13 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
       
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
+        
         print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100))
+        
+        lru = OrderedDict()
+        attr_lru = LRUCache(1000)
+        stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
+        
         all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": s, "$lt": s+chunk_size}}).sort("first_timestamp",1)
         
         for traj in all_trajs:
@@ -249,7 +252,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
 
 
 
-def batch_write(config_params, bulk_write_queue):
+def batch_write(config_params, bulk_write_queue, write_meta = False):
     
     time.sleep(10)
     client_host=config_params['host']
@@ -270,33 +273,34 @@ def batch_write(config_params, bulk_write_queue):
     to_collection.create_index("timestamp")
     
     # add schema to the meta collection
-    meta_col = client[config_params["write_database_name"]]["__METADATA__"]
-    start_time = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
-    end_time = from_collection.find_one(sort=[("last_timestamp", -1)])["last_timestamp"]
-    start_x = from_collection.find_one(sort=[("starting_x", 1)])["starting_x"]
-    end_x = from_collection.find_one(sort=[("ending_x", -1)])["ending_x"]
-    
-    meta_doc = {
-        "_id": config_params['read_collection_name'],
-        "name": "",
-        "description": "",
-        "start_time": start_time,
-        "end_time": end_time,
-        "num_objects": from_collection.estimated_document_count(),
-        "duration": end_time-start_time,
-        "start_x": start_x,
-        "end_x": end_x, 
-        "road_segment_length": abs(start_x-end_x)
-        }
-    try:
-        meta_col.insert_one(meta_doc, bypass_document_validation=True)
-    except:
-        _id = config_params['read_collection_name']
-        meta_doc.pop("_id")
-        meta_col.update_one({"_id": _id}, {"$set": meta_doc}, upsert=True)
+    if write_meta:
+        meta_col = client[config_params["write_database_name"]]["__METADATA__"]
+        start_time = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
+        end_time = from_collection.find_one(sort=[("last_timestamp", -1)])["last_timestamp"]
+        start_x = from_collection.find_one(sort=[("starting_x", 1)])["starting_x"]
+        end_x = from_collection.find_one(sort=[("ending_x", -1)])["ending_x"]
         
-        
-    print("Collection information is written to __METADATA__")
+        meta_doc = {
+            "_id": config_params['read_collection_name'],
+            "name": "",
+            "description": "",
+            "start_time": start_time,
+            "end_time": end_time,
+            "num_objects": from_collection.estimated_document_count(),
+            "duration": end_time-start_time,
+            "start_x": start_x,
+            "end_x": end_x, 
+            "road_segment_length": abs(start_x-end_x)
+            }
+        try:
+            meta_col.insert_one(meta_doc, bypass_document_validation=True)
+        except:
+            _id = config_params['read_collection_name']
+            meta_doc.pop("_id")
+            meta_col.update_one({"_id": _id}, {"$set": meta_doc}, upsert=True)
+            
+            
+        print("Collection information is written to __METADATA__")
 
     bulk_write_cmd = []
     
