@@ -100,7 +100,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
         }
             
     '''
-    print("Chunk size: ", chunk_size)
+    # print("Chunk size: ", chunk_size)
     
     client_host=config_params['host']
     client_username=config_params['username']
@@ -133,7 +133,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
       
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
-        print("{} In progress (approx) {:.1f} %".format(direction, (s+chunk_size-start)/(end-start)*100))
+        print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100))
         all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": s, "$lt": s+chunk_size}}).sort("first_timestamp",1)
         
         for traj in all_trajs:
@@ -233,7 +233,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
             
                 
         # write the rest of lru to database
-        print("Flush out the rest in LRU cache")
+        # print("Flush out the rest in LRU cache")
         while len(lru) > 0:
             t, d = lru.popitem(last=False) # pop first
             # d={direction+"."+key: val for key,val in d.items()}
@@ -302,7 +302,7 @@ def batch_write(config_params, bulk_write_queue):
     
     while True:
         try:
-            cmd = bulk_write_queue.get(timeout = 10)
+            cmd = bulk_write_queue.get(timeout = 5)
             bulk_write_cmd.append(cmd)
             
         except queue.Empty:
