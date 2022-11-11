@@ -116,6 +116,8 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
 
 
     from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
+    from_collection.create_index("direction")
+    from_collection.create_index("first_timestamp")
     
     time_series_field = ["timestamp", "x_position", "y_position", "length", "width"]
       
@@ -127,7 +129,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
     end = from_collection.find_one(sort=[("last_timestamp", -1)])["first_timestamp"]
     if not chunk_size:
         chunk_size = end-start +1 # query the entire collection
-      
+    
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
         
@@ -197,7 +199,6 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
                 # [centerx, centery, l ,w, dir, v]
                 ccls, node = attr_lru.get(_id)
                 try:
-                    
                     lru[t][str(_id)] = [df["x_position"][t] + dir*0.5*df["length"][t],
                                         df["y_position"][t],
                                         df["length"][t],
@@ -211,7 +212,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
                     # if t <= last_poped_t:
                     #     # meaning t was poped pre-maturely
                     #     print("t was poped prematurely from LRU in transform_queue. Increase stale")
-                        
+                      
                     lru[t] = {str(_id): [df["x_position"][t] + dir*0.5*df["length"][t],
                                         df["y_position"][t],
                                         df["length"][t],
@@ -245,7 +246,6 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
             update = {"$set": {direction+"."+key: val for key,val in d.items()}}
             bulk_write_que.put(UpdateOne(filter=query, update=update, upsert=True))
             
-
     del from_collection
     return 
 
