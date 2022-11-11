@@ -157,7 +157,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
                 velocity.append(velocity[-1])
         
             # finite difference twice to get acceleration
-            accel = list(np.diff(traj["x_position"], n=2)/(dt**2))
+            accel = list(dir*np.diff(traj["x_position"], n=2)/(dt**2))
             last_accel = accel[-1]
             accel.extend([last_accel,last_accel]) 
             
