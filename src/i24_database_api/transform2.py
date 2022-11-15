@@ -237,7 +237,7 @@ def transform_worker(config_params, query_filter, bulk_write_que ):
 
 
 
-def batch_write(config_params, bulk_write_queue, write_meta = False):
+def batch_write(config_params, bulk_write_queue):
     
     # time.sleep(10)
     client_host=config_params['host']
@@ -251,43 +251,13 @@ def batch_write(config_params, bulk_write_queue, write_meta = False):
         password=client_password,
         connect=True,
         connectTimeoutMS=5000)
-
-
-    from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
+    
     to_collection = client[config_params["write_database_name"]][config_params["write_collection_name"]]
     to_collection.create_index("timestamp")
     
-    # add schema to the meta collection
-    if write_meta:
-        meta_col = client[config_params["write_database_name"]]["__METADATA__"]
-        start_time = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
-        end_time = from_collection.find_one(sort=[("last_timestamp", -1)])["last_timestamp"]
-        start_x = from_collection.find_one(sort=[("starting_x", 1)])["starting_x"]
-        end_x = from_collection.find_one(sort=[("ending_x", -1)])["ending_x"]
-        
-        meta_doc = {
-            "_id": config_params['read_collection_name'],
-            "name": "",
-            "description": "",
-            "start_time": start_time,
-            "end_time": end_time,
-            "num_objects": from_collection.estimated_document_count(),
-            "duration": end_time-start_time,
-            "start_x": start_x,
-            "end_x": end_x, 
-            "road_segment_length": abs(start_x-end_x)
-            }
-        try:
-            meta_col.insert_one(meta_doc, bypass_document_validation=True)
-        except:
-            _id = config_params['read_collection_name']
-            meta_doc.pop("_id")
-            meta_col.update_one({"_id": _id}, {"$set": meta_doc}, upsert=True)
-            
-            
-        print("Collection information is written to __METADATA__")
 
     bulk_write_cmd = []
+    
     
     while True:
         try:
@@ -298,15 +268,21 @@ def batch_write(config_params, bulk_write_queue, write_meta = False):
             print("Getting from bulk_write_queue reaches timeout.")
             break
         
-        if len(bulk_write_cmd) > 10000:
+        if len(bulk_write_cmd) > 5000:
             to_collection.bulk_write(bulk_write_cmd, ordered=False)
+            # print("current bulk_write_cmd size: {}".format(bulk_write_cmd.qsize()))
+            # writer_pool.apply_async(batch_write, (config, bulk_write_cmd, ))
+            # bulk_write_cmd.append(bulk_write_queue.get(block=False))
             bulk_write_cmd = []
-        
-        
+            
+            
+            
     if len(bulk_write_cmd) > 0:
         to_collection.bulk_write(bulk_write_cmd, ordered=False)
-    
+        
+        
     return
+    
 
 
 
