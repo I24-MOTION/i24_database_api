@@ -281,7 +281,7 @@ def batch_write(config_params, bulk_write_queue, write_meta = False):
         end_x = from_collection.find_one(sort=[("ending_x", -1)])["ending_x"]
         
         meta_doc = {
-            "_id": config_params['read_collection_name'],
+            "_id": config_params['write_collection_name'],
             "name": "",
             "description": "",
             "start_time": start_time,
