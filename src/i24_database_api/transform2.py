@@ -239,7 +239,9 @@ def transform_worker(config_params, query_filter, bulk_write_que ):
 
 def batch_write(config_params, bulk_write_queue):
     
-    # time.sleep(10)
+    while bulk_write_queue.empty():
+        time.sleep(10)
+    print("start a batch_write worker")
     client_host=config_params['host']
     client_username=config_params['username']
     client_password=config_params['password']
@@ -268,7 +270,8 @@ def batch_write(config_params, bulk_write_queue):
             print("Getting from bulk_write_queue reaches timeout.")
             break
         
-        if len(bulk_write_cmd) > 5000:
+        if len(bulk_write_cmd) > 1000:
+            
             to_collection.bulk_write(bulk_write_cmd, ordered=False)
             # print("current bulk_write_cmd size: {}".format(bulk_write_cmd.qsize()))
             # writer_pool.apply_async(batch_write, (config, bulk_write_cmd, ))
