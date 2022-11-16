@@ -46,15 +46,18 @@ class LRUCache:
         self.cache.move_to_end(key)   
     
 
-
+def decimal_range(start, stop, increment):
+    while start < stop: # and not math.isclose(start, stop): Py>3.5
+        yield start
+        start += increment
         
         
-
-
-
-def transform_worker(config_params, query_filter, bulk_write_que ):
+        
+def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
     '''
-    query trajectories that are in the query_filter
+    direction: eb or wb
+    query trajectories that starts in range [start_time, end_time)
+    if they are specified. Otherwise from the b
     ** for static from_collection only **
     
     Similar to transform but of different schema
@@ -97,16 +100,7 @@ def transform_worker(config_params, query_filter, bulk_write_que ):
         }
             
     '''
-    
-    
-    time_series_field = ["timestamp", "x_position", "y_position", "length", "width"]
-    stale_thresh = 800 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
-    
-    lru = OrderedDict()
-    attr_lru = LRUCache(1000)
-    stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
-    dir_to_str = {1: "eb",
-                  -1:"wb"}
+    # print("Chunk size: ", chunk_size)
     
     client_host=config_params['host']
     client_username=config_params['username']
@@ -120,128 +114,147 @@ def transform_worker(config_params, query_filter, bulk_write_que ):
         connect=True,
         connectTimeoutMS=5000)
 
+
     from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
-    cur = from_collection.find(query_filter).sort("first_timestamp",1)
-    dir = query_filter["direction"]
-    direction = dir_to_str[dir]
     
-    for traj in cur:
-    # while not traj_queue.empty():
-        # traj = traj_queue.get(block = False)
-        _id, l,w,node, ccls, dir = traj["_id"], traj["length"], traj["width"], traj["compute_node_id"], traj["coarse_vehicle_class"] , traj["direction"]
-        attr_lru.put(_id, [ccls, node, dir])
+    time_series_field = ["timestamp", "x_position", "y_position", "length", "width"]
+      
+    stale_thresh = 500 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
+    # last_poped_t = 0
+    
+    dir = 1 if direction=="eb" else -1
+    start = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
+    end = from_collection.find_one(sort=[("last_timestamp", -1)])["first_timestamp"]
+    if not chunk_size:
+        chunk_size = end-start +1 # query the entire collection
+      
+    # specify query - iterative ranges
+    for s in decimal_range(start, end, chunk_size):
         
-        if isinstance(l, float):
-            n = len(traj["x_position"])
-            l,w = [l]*n, [w]*n # dumb but ok
+        print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100))
+        
+        lru = OrderedDict()
+        attr_lru = LRUCache(1000)
+        stale = defaultdict(int) # key: timestamp, val: number of timestamps that it hasn't been updated
+        
+        all_trajs = from_collection.find({"direction":dir, "first_timestamp": {"$gte": s, "$lt": s+chunk_size}}).sort("first_timestamp",1)
+        
+        for traj in all_trajs:
             
-        try:
-            velocity = traj["velocity"]
-        except KeyError:
-            velocity = list(dir*np.diff(traj["x_position"])/dt)
-            velocity.append(velocity[-1])
-    
-        # finite difference twice to get acceleration
-        accel = list(dir*np.diff(traj["x_position"], n=2)/(dt**2))
-        last_accel = accel[-1]
-        accel.extend([last_accel,last_accel]) 
-        
-        # increment stale
-        for k in stale:
-            stale[k] += 1
-        
-        # resample to 1/dt hz
-        data = {key:traj[key] for key in time_series_field}
-        data["velocity"] = velocity
-        data["acceleration"] = accel
-        data["length"] = l
-        data["width"] = w
-        df = pd.DataFrame(data, columns=data.keys()) 
-        index = pd.to_timedelta(df["timestamp"], unit='s')
-        df = df.set_index(index)
-        df = df.drop(columns = "timestamp")
-        
-        df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
-        df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
-        df = df.interpolate(method='linear')
-        
-        # assemble in traj
-        # do not extrapolate for more than 1 sec
-        first_valid_time = pd.Series.first_valid_index(df['x_position'])
-        last_valid_time = pd.Series.last_valid_index(df['x_position'])
-        first_time = max(min(traj['timestamp']), first_valid_time-1)
-        last_time = min(max(traj['timestamp']), last_valid_time+1)
-        df=df[first_time:last_time]
-
-        traj["first_timestamp"] = df.index.values[0]
-        traj["last_timestamp"] = df.index.values[-1]
-        traj["starting_x"] = df['x_position'].values[0]
-        traj["ending_x"] = df['x_position'].values[-1]
-
-        
-        # add to result dictionary
-        for t in df.index:
-            # [centerx, centery, l ,w, dir, v]
-            ccls, node, dir = attr_lru.get(_id)
+            _id, l,w,node, ccls = traj["_id"], traj["length"], traj["width"], traj["compute_node_id"], traj["coarse_vehicle_class"] 
+            attr_lru.put(_id, [ccls,node])
+            
+            if isinstance(l, float):
+                n = len(traj["x_position"])
+                l,w = [l]*n, [w]*n # dumb but ok
+                
             try:
-                lru[t][str(_id)] = [df["x_position"][t] + dir*0.5*df["length"][t],
-                                    df["y_position"][t],
-                                    df["length"][t],
-                                    df["width"][t], 
-                                    dir,
-                                    df["velocity"][t],
-                                    df["acceleration"][t],
-                                    ccls,
-                                    node] # dir, v, a, cls, videonode],
-            except: # t does not exists in lru yet
-                # if t <= last_poped_t:
-                #     # meaning t was poped pre-maturely
-                #     print("t was poped prematurely from LRU in transform_queue. Increase stale")
-                  
-                lru[t] = {str(_id): [df["x_position"][t] + dir*0.5*df["length"][t],
-                                    df["y_position"][t],
-                                    df["length"][t],
-                                    df["width"][t], 
-                                    dir,
-                                    df["velocity"][t],
-                                    df["acceleration"][t],
-                                    ccls,
-                                    node] }
-            lru.move_to_end(t, last=True)
-            stale[t] = 0 # reset staleness
+                velocity = traj["velocity"]
+            except KeyError:
+                velocity = list(dir*np.diff(traj["x_position"])/dt)
+                velocity.append(velocity[-1])
+        
+            # finite difference twice to get acceleration
+            accel = list(np.diff(traj["x_position"], n=2)/(dt**2))
+            last_accel = accel[-1]
+            accel.extend([last_accel,last_accel]) 
             
-        # update db from lru
-        while stale[next(iter(lru))] > stale_thresh:
+            # increment stale
+            for k in stale:
+                stale[k] += 1
+            
+            # resample to 1/dt hz
+            data = {key:traj[key] for key in time_series_field}
+            data["velocity"] = velocity
+            data["acceleration"] = accel
+            data["length"] = l
+            data["width"] = w
+            df = pd.DataFrame(data, columns=data.keys()) 
+            index = pd.to_timedelta(df["timestamp"], unit='s')
+            df = df.set_index(index)
+            df = df.drop(columns = "timestamp")
+            
+            df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
+            df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
+            df = df.interpolate(method='linear')
+            
+            # assemble in traj
+            # do not extrapolate for more than 1 sec
+            first_valid_time = pd.Series.first_valid_index(df['x_position'])
+            last_valid_time = pd.Series.last_valid_index(df['x_position'])
+            first_time = max(min(traj['timestamp']), first_valid_time-1)
+            last_time = min(max(traj['timestamp']), last_valid_time+1)
+            df=df[first_time:last_time]
+
+            traj["first_timestamp"] = df.index.values[0]
+            traj["last_timestamp"] = df.index.values[-1]
+            traj["starting_x"] = df['x_position'].values[0]
+            traj["ending_x"] = df['x_position'].values[-1]
+    
+            
+            # add to result dictionary
+            for t in df.index:
+                # [centerx, centery, l ,w, dir, v]
+                ccls, node = attr_lru.get(_id)
+                try:
+                    
+                    lru[t][str(_id)] = [df["x_position"][t] + dir*0.5*df["length"][t],
+                                        df["y_position"][t],
+                                        df["length"][t],
+                                        df["width"][t], 
+                                        dir,
+                                        df["velocity"][t],
+                                        df["acceleration"][t],
+                                        ccls,
+                                        node] # dir, v, a, cls, videonode],
+                except: # t does not exists in lru yet
+                    # if t <= last_poped_t:
+                    #     # meaning t was poped pre-maturely
+                    #     print("t was poped prematurely from LRU in transform_queue. Increase stale")
+                        
+                    lru[t] = {str(_id): [df["x_position"][t] + dir*0.5*df["length"][t],
+                                        df["y_position"][t],
+                                        df["length"][t],
+                                        df["width"][t], 
+                                        dir,
+                                        df["velocity"][t],
+                                        df["acceleration"][t],
+                                        ccls,
+                                        node] }
+                lru.move_to_end(t, last=True)
+                stale[t] = 0 # reset staleness
+                
+            # update db from lru
+            while stale[next(iter(lru))] > stale_thresh:
+                t, d = lru.popitem(last=False) # pop first
+                # last_poped_t = t
+                stale.pop(t)
+                # change d to value.objectid: array, so that it does not reset the value field, but only update it
+                query = {"timestamp": round(t,2)}
+                update = {"$set": {direction+"."+key: val for key,val in d.items()}}
+                bulk_write_que.put(UpdateOne(filter=query, update=update, upsert=True))
+            
+                
+        # write the rest of lru to database
+        # print("Flush out the rest in LRU cache")
+        while len(lru) > 0:
             t, d = lru.popitem(last=False) # pop first
-            # last_poped_t = t
-            stale.pop(t)
-            # change d to value.objectid: array, so that it does not reset the value field, but only update it
+            # d={direction+"."+key: val for key,val in d.items()}
+            # pool.apply_async(thread_update_one, (to_collection, {"timestamp": round(t,2)},{"$set": d},))
             query = {"timestamp": round(t,2)}
             update = {"$set": {direction+"."+key: val for key,val in d.items()}}
             bulk_write_que.put(UpdateOne(filter=query, update=update, upsert=True))
-        
-                
-    # write the rest of lru to database
-    # print("Flush out the rest in LRU cache, bulk_write_que size: {}".format(bulk_write_que.qsize()))
-    
-    while len(lru) > 0:
-        t, d = lru.popitem(last=False) # pop first
-        # d={direction+"."+key: val for key,val in d.items()}
-        # pool.apply_async(thread_update_one, (to_collection, {"timestamp": round(t,2)},{"$set": d},))
-        query = {"timestamp": round(t,2)}
-        update = {"$set": {direction+"."+key: val for key,val in d.items()}}
-        bulk_write_que.put(UpdateOne(filter=query, update=update, upsert=True))
+            
 
+    del from_collection
     return 
 
 
 
 
-def batch_write(config_params, bulk_write_queue):
+def batch_write(config_params, bulk_write_queue, write_meta = False):
     
-    while bulk_write_queue.empty():
-        time.sleep(10)
-    print("start a batch_write worker")
+    time.sleep(10)
     client_host=config_params['host']
     client_username=config_params['username']
     client_password=config_params['password']
@@ -253,39 +266,62 @@ def batch_write(config_params, bulk_write_queue):
         password=client_password,
         connect=True,
         connectTimeoutMS=5000)
-    
+
+
+    from_collection = client[config_params['read_database_name']][config_params['read_collection_name']]
     to_collection = client[config_params["write_database_name"]][config_params["write_collection_name"]]
     to_collection.create_index("timestamp")
     
+    # add schema to the meta collection
+    if write_meta:
+        meta_col = client[config_params["write_database_name"]]["__METADATA__"]
+        start_time = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
+        end_time = from_collection.find_one(sort=[("last_timestamp", -1)])["last_timestamp"]
+        start_x = from_collection.find_one(sort=[("starting_x", 1)])["starting_x"]
+        end_x = from_collection.find_one(sort=[("ending_x", -1)])["ending_x"]
+        
+        meta_doc = {
+            "_id": config_params['read_collection_name'],
+            "name": "",
+            "description": "",
+            "start_time": start_time,
+            "end_time": end_time,
+            "num_objects": from_collection.estimated_document_count(),
+            "duration": end_time-start_time,
+            "start_x": start_x,
+            "end_x": end_x, 
+            "road_segment_length": abs(start_x-end_x)
+            }
+        try:
+            meta_col.insert_one(meta_doc, bypass_document_validation=True)
+        except:
+            _id = config_params['read_collection_name']
+            meta_doc.pop("_id")
+            meta_col.update_one({"_id": _id}, {"$set": meta_doc}, upsert=True)
+            
+            
+        print("Collection information is written to __METADATA__")
 
     bulk_write_cmd = []
     
-    
     while True:
         try:
-            cmd = bulk_write_queue.get(timeout = 20)
+            cmd = bulk_write_queue.get(timeout = 5)
             bulk_write_cmd.append(cmd)
             
         except queue.Empty:
             print("Getting from bulk_write_queue reaches timeout.")
             break
         
-        if len(bulk_write_cmd) > 1000:
-            
+        if len(bulk_write_cmd) > 500:
             to_collection.bulk_write(bulk_write_cmd, ordered=False)
-            # print("current bulk_write_cmd size: {}".format(bulk_write_cmd.qsize()))
-            # writer_pool.apply_async(batch_write, (config, bulk_write_cmd, ))
-            # bulk_write_cmd.append(bulk_write_queue.get(block=False))
             bulk_write_cmd = []
-            
-            
-            
+        
+        
     if len(bulk_write_cmd) > 0:
         to_collection.bulk_write(bulk_write_cmd, ordered=False)
-        
-        
-    return
     
+    return
 
 
 
