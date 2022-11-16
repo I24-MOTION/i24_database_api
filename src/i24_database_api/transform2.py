@@ -295,7 +295,7 @@ def batch_write(config_params, bulk_write_queue, write_meta = False):
         try:
             meta_col.insert_one(meta_doc, bypass_document_validation=True)
         except:
-            _id = config_params['read_collection_name']
+            _id = config_params['write_collection_name']
             meta_doc.pop("_id")
             meta_col.update_one({"_id": _id}, {"$set": meta_doc}, upsert=True)
             
