@@ -57,12 +57,12 @@ dbr = DBReader(db_param, collection_name=collection_name)
 
 
 # Reset collection
-reconciled_schema_path = "config/reconciled_schema.json"
-dbw = DBWriter(db_param, database_name = "trajectories", collection_name = "groundtruth_scene_1", schema_file=reconciled_schema_path)
+# reconciled_schema_path = "config/reconciled_schema.json"
+# dbw = DBWriter(db_param, database_name = "trajectories", collection_name = "groundtruth_scene_1", schema_file=reconciled_schema_path)
 
 
-print("groundtruth_scene_1" in dbw.db.list_collection_names())
-print(dbw.db.list_collection_names())
+# print("groundtruth_scene_1" in dbw.db.list_collection_names())
+# print(dbw.db.list_collection_names())
 # print(dbw.collection.count_documents({}))
 
 
@@ -73,28 +73,28 @@ print(dbw.db.list_collection_names())
 # dbw.collection.aggregate(pipeline)
 
 #%% batch update from list of length to double
-from pymongo import UpdateOne
-dbw = DBWriter(db_param, database_name = "trajectories", collection_name = "groundtruth_scene_1", schema_file=None)
-col = dbw.db["groundtruth_scene_1"]
+# from pymongo import UpdateOne
+# dbw = DBWriter(db_param, database_name = "trajectories", collection_name = "groundtruth_scene_1", schema_file=None)
+# col = dbw.db["groundtruth_scene_1"]
 
 
-batch=[]
-for d in col.find({}):
-    batch.append(
-        UpdateOne(
-            {'_id':d["_id"]}, 
-            {
-                "$set":
-                    {
-                        "length":d["length"][0] ,
-                        "width":d["width"][0] ,
-                        "height":d["height"][0] 
-                    }, 
+# batch=[]
+# for d in col.find({}):
+#     batch.append(
+#         UpdateOne(
+#             {'_id':d["_id"]}, 
+#             {
+#                 "$set":
+#                     {
+#                         "length":d["length"][0] ,
+#                         "width":d["width"][0] ,
+#                         "height":d["height"][0] 
+#                     }, 
             
-            }, upsert=False)
-        )
+#             }, upsert=False)
+#         )
 
-col.bulk_write(batch, ordered=False)
+# col.bulk_write(batch, ordered=False)
 
                     
 

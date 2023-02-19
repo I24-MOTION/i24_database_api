@@ -143,10 +143,13 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
             
             _id, l,w,node, ccls = traj["_id"], traj["length"], traj["width"], traj["compute_node_id"], traj["coarse_vehicle_class"] 
             attr_lru.put(_id, [ccls,node])
+            n = len(traj["x_position"])
             
             if isinstance(l, float):
-                n = len(traj["x_position"])
-                l,w = [l]*n, [w]*n # dumb but ok
+                l,w = [l]*n, [w]*n # make length and width time-series
+                
+            elif len(l)==1:
+                l,w = l*n, w*n
                 
             try:
                 velocity = traj["velocity"]
