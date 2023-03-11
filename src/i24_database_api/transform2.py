@@ -177,9 +177,15 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
             df = df.set_index(index)
             df = df.drop(columns = "timestamp")
             
-            df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
+            # leave nans blank
+            freq = str(dt)+"S"
+            df = df.resample(freq).mean() # leave nans
             df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
-            df = df.interpolate(method='linear')
+
+            # fill nans
+            # df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
+            # df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
+            # df = df.interpolate(method='linear')
             
             # assemble in traj
             # do not extrapolate for more than 1 sec
