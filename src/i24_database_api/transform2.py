@@ -47,7 +47,7 @@ class LRUCache:
     
 
 def decimal_range(start, stop, increment):
-    while start < stop: # and not math.isclose(start, stop): Py>3.5
+    while start <= stop: # and not math.isclose(start, stop): Py>3.5
         yield start
         start += increment
         
@@ -123,10 +123,10 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
     # last_poped_t = 0
     
     dir = 1 if direction=="eb" else -1
-    start = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]
-    end = from_collection.find_one(sort=[("last_timestamp", -1)])["first_timestamp"]
+    start = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]-1
+    end = from_collection.find_one(sort=[("last_timestamp", -1)])["first_timestamp"]+1
     if not chunk_size:
-        chunk_size = end-start +1 # query the entire collection
+        chunk_size = end-start # query the entire collection
       
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
@@ -206,7 +206,6 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
                 # [centerx, centery, l ,w, dir, v]
                 ccls, node = attr_lru.get(_id)
                 try:
-                    
                     lru[t][str(_id)] = [df["x_position"][t] + dir*0.5*df["length"][t],
                                         df["y_position"][t],
                                         df["length"][t],
