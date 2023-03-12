@@ -124,13 +124,14 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
     
     dir = 1 if direction=="eb" else -1
     start = from_collection.find_one(sort=[("first_timestamp", 1)])["first_timestamp"]-1
-    end = from_collection.find_one(sort=[("last_timestamp", -1)])["first_timestamp"]+1
+    end = from_collection.find_one(sort=[("first_timestamp", -1)])["first_timestamp"]+1
     if not chunk_size:
         chunk_size = end-start # query the entire collection
       
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
         
+        print(f"range start {s}, range end {s+chunk_size}, start {start}, end {end}")
         print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100))
         
         lru = OrderedDict()
