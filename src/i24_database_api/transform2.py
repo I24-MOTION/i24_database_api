@@ -182,8 +182,8 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
             freq = str(dt)+"S"
             df = df.resample(freq).mean() # leave nans
             df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
-            df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
-            df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
+            # df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
+            # df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
 
             # fill nans
             if interpolate:
