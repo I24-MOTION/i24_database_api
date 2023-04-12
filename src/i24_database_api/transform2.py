@@ -53,7 +53,7 @@ def decimal_range(start, stop, increment):
         
         
         
-def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
+def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, interpolate=False):
     '''
     direction: eb or wb
     query trajectories that starts in range [start_time, end_time)
@@ -182,11 +182,12 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50):
             freq = str(dt)+"S"
             df = df.resample(freq).mean() # leave nans
             df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
+            df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
+            df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
 
             # fill nans
-            # df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
-            # df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
-            # df = df.interpolate(method='linear')
+            if interpolate:
+                df = df.interpolate(method='linear')
             
             # assemble in traj
             # do not extrapolate for more than 1 sec
