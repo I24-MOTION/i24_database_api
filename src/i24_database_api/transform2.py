@@ -131,8 +131,10 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
     # specify query - iterative ranges
     for s in decimal_range(start, end, chunk_size):
         
-        print(f"range start {s}, range end {s+chunk_size}, start {start}, end {end}")
+        # print(f"range start {s}, range end {s+chunk_size}, start {start}, end {end}")
         print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100))
+        # print("\r", f"..progress..: {count} / {total}", 
+        #       end="", flush=True)
         
         lru = OrderedDict()
         attr_lru = LRUCache(1000)
@@ -181,9 +183,9 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
             # leave nans blank
             freq = str(dt)+"S"
             df = df.resample(freq).mean() # leave nans
+            df.index = df.index.values.astype('datetime64[ns]')#.astype('int64')*1e-9
+            df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
             df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
-            # df=df.groupby(df.index.floor(str(dt)+"S")).mean().resample(str(dt)+"S").asfreq()
-            # df.index = df.index.values.astype('datetime64[ns]').astype('int64')*1e-9
 
             # fill nans
             if interpolate:
@@ -346,11 +348,11 @@ if __name__ == '__main__':
         db_param = json.load(f)
         
     db_param["read_database_name"] = "trajectories"
-    db_param["read_collection_name"] = "635997ddc8d071a13a9e5293"
+    db_param["read_collection_name"] = "ICCV_2023_scene1_SPLINES"
     db_param["write_database_name"] = "transformed_beta"
     db_param["write_collection_name"] = db_param["read_collection_name"]
     
-    transform_beta(chunk_size=20)
+    transform_beta(chunk_size=50, interpolate=True)
     
     # print("not implemented")
     
