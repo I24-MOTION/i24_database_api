@@ -119,7 +119,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
     
     time_series_field = ["timestamp", "x_position", "y_position", "length", "width"]
       
-    stale_thresh = 500 # if a timestamp is not updated after processing [stale_thresh] number of trajs, then update to database. stale_thresh~=#veh on roadway simulataneously
+    stale_thresh = 500 # if a timestamp is not updated for [stale_thresh] times, then update to database. stale_thresh~=#veh on roadway simulataneously
     # last_poped_t = 0
     
     dir = 1 if direction=="eb" else -1
@@ -132,7 +132,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
     for s in decimal_range(start, end, chunk_size):
         
         # print(f"range start {s}, range end {s+chunk_size}, start {start}, end {end}")
-        print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100))
+        print("{} In progress (approx) {:.1f} %".format(direction, (s-start)/(end-start)*100), end='\r')
         # print("\r", f"..progress..: {count} / {total}", 
         #       end="", flush=True)
         
@@ -149,7 +149,7 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
             n = len(traj["x_position"])
             
             if isinstance(l, float):
-                l,w = [l]*n, [w]*n # make length and width time-series
+                l,w = [l]*n, [w]*n # make length and width time-seriesc
                 
             elif len(l)==1:
                 l,w = l*n, w*n
@@ -175,7 +175,12 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
             data["acceleration"] = accel
             data["length"] = l
             data["width"] = w
+            
+            # try:
             df = pd.DataFrame(data, columns=data.keys()) 
+            # except ValueError:
+                # print(len(l),len(w),len(velocity),len(accel))
+                # print(l, w)
             index = pd.to_timedelta(df["timestamp"], unit='s')
             df = df.set_index(index)
             df = df.drop(columns = "timestamp")
@@ -189,7 +194,10 @@ def transform_beta(direction, config_params, bulk_write_que, chunk_size=50, inte
 
             # fill nans
             if interpolate:
-                df = df.interpolate(method='linear')
+                try:
+                    df = df.interpolate(method='linear')
+                except:
+                    pass
             
             # assemble in traj
             # do not extrapolate for more than 1 sec
@@ -322,7 +330,7 @@ def batch_write(config_params, bulk_write_queue, write_meta = False):
             bulk_write_cmd.append(cmd)
             
         except queue.Empty:
-            print("Getting from bulk_write_queue reaches timeout.")
+            # print("Getting from bulk_write_queue reaches timeout.")
             break
         
         if len(bulk_write_cmd) > 500:
